@@ -37,6 +37,26 @@ renders it. It owns no spec logic of its own.
 > Telescope auto-loads the extension the first time you run `:Telescope openspec …`, so
 > an explicit `require("telescope").load_extension("openspec")` is optional.
 
+### From a local clone (no GitHub remote)
+
+If the plugin lives in a local checkout, point lazy at it with `dir`:
+
+```lua
+{
+  dir = "~/Repositories/openspec.nvim", -- path to your local clone
+  dependencies = { "nvim-telescope/telescope.nvim" },
+  cmd = "OpenSpec",
+  keys = {
+    { "<leader>oc", "<cmd>OpenSpec changes<cr>", desc = "OpenSpec: changes" },
+    { "<leader>os", "<cmd>OpenSpec specs<cr>",   desc = "OpenSpec: specs" },
+  },
+  opts = {},
+}
+```
+
+Alternatively, set a dev path in your lazy setup
+(`{ dev = { path = "~/Repositories" } }`) and use `{ "TimboGP/openspec.nvim", dev = true }`.
+
 ### packer.nvim
 
 ```lua
