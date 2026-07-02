@@ -44,14 +44,14 @@ Calling setup is optional; sensible defaults apply without it. >lua
 With lazy.nvim: >lua
 
     {
-      "yourname/openspec.nvim",
+      "TimboGP/openspec.nvim",
       dependencies = { "nvim-telescope/telescope.nvim" }, -- optional
       cmd = "OpenSpec",
-      config = function()
-        require("openspec").setup({})
-        pcall(require("telescope").load_extension, "openspec")
-      end,
+      opts = {}, -- lazy runs require("openspec").setup(opts)
     }
+
+Telescope auto-loads the extension on first `:Telescope openspec` use, so an
+explicit `load_extension` call is optional.
 <
 ==============================================================================
 4. CONFIGURATION                                       *openspec-configuration*

@@ -22,22 +22,26 @@ renders it. It owns no spec logic of its own.
 
 ```lua
 {
-  "yourname/openspec.nvim",
-  dependencies = { "nvim-telescope/telescope.nvim" }, -- optional
+  "TimboGP/openspec.nvim",
+  dependencies = { "nvim-telescope/telescope.nvim" }, -- optional, enables the pickers
   cmd = "OpenSpec",
-  opts = {},
-  config = function(_, opts)
-    require("openspec").setup(opts)
-    pcall(require("telescope").load_extension, "openspec")
-  end,
+  keys = {
+    { "<leader>oc", "<cmd>OpenSpec changes<cr>", desc = "OpenSpec: changes" },
+    { "<leader>os", "<cmd>OpenSpec specs<cr>",   desc = "OpenSpec: specs" },
+  },
+  opts = {}, -- lazy calls require("openspec").setup(opts) for you
 }
 ```
+
+> `opts = {}` is enough — lazy runs `setup()` on the `openspec` module automatically.
+> Telescope auto-loads the extension the first time you run `:Telescope openspec …`, so
+> an explicit `require("telescope").load_extension("openspec")` is optional.
 
 ### packer.nvim
 
 ```lua
 use({
-  "yourname/openspec.nvim",
+  "TimboGP/openspec.nvim",
   requires = { "nvim-telescope/telescope.nvim" },
   config = function()
     require("openspec").setup({})
