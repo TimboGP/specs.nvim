@@ -1,0 +1,143 @@
+*openspec.txt*                      Neovim wrapper for the OpenSpec CLI
+
+==============================================================================
+CONTENTS                                                    *openspec-contents*
+
+  1. Introduction ......................... |openspec-introduction|
+  2. Requirements ......................... |openspec-requirements|
+  3. Setup ................................ |openspec-setup|
+  4. Configuration ........................ |openspec-configuration|
+  5. Commands ............................. |openspec-commands|
+  6. Telescope ............................ |openspec-telescope|
+  7. Lua API .............................. |openspec-api|
+  8. Health ............................... |openspec-health|
+
+==============================================================================
+1. INTRODUCTION                                         *openspec-introduction*
+
+openspec.nvim is a thin wrapper around the OpenSpec CLI. It shells out to
+`openspec`, parses its `--json` output, and renders it — enabling
+spec-driven-development workflows without leaving Neovim.
+
+Two surfaces are provided:
+  - The |:OpenSpec| command with subcommands.
+  - Visual, list-style Telescope pickers (see |openspec-telescope|).
+
+OpenSpec: https://github.com/Fission-AI/OpenSpec
+
+==============================================================================
+2. REQUIREMENTS                                         *openspec-requirements*
+
+  - Neovim >= 0.10 (uses |vim.system()|).
+  - The `openspec` CLI on your `$PATH`.
+  - telescope.nvim (optional) — required only for the `changes`/`specs`
+    pickers. All other features work without it.
+
+==============================================================================
+3. SETUP                                                       *openspec-setup*
+
+Calling setup is optional; sensible defaults apply without it. >lua
+
+    require("openspec").setup({})
+    pcall(require("telescope").load_extension, "openspec")
+<
+With lazy.nvim: >lua
+
+    {
+      "yourname/openspec.nvim",
+      dependencies = { "nvim-telescope/telescope.nvim" }, -- optional
+      cmd = "OpenSpec",
+      config = function()
+        require("openspec").setup({})
+        pcall(require("telescope").load_extension, "openspec")
+      end,
+    }
+<
+==============================================================================
+4. CONFIGURATION                                       *openspec-configuration*
+
+                                                            *openspec.setup()*
+require("openspec").setup({opts})
+
+Defaults: >lua
+
+    {
+      cmd = "openspec",  -- executable name or absolute path
+      notify = true,     -- emit [openspec] notifications
+      picker = {
+        mappings = {     -- in-picker action keymaps (insert + normal)
+          validate = "<C-v>",
+          status   = "<C-s>",
+          archive  = "<C-a>",
+          new      = "<C-n>",
+        },
+      },
+      view = {
+        split = "botright new", -- window command hosting `openspec view`
+      },
+    }
+<
+`cmd`      Executable name or absolute path to the openspec binary.
+`notify`   When false, silences all [openspec] notifications.
+`picker`   Telescope picker options; `mappings` overrides in-picker action keys.
+`view`     `split` is the command used to create the `openspec view` terminal.
+
+==============================================================================
+5. COMMANDS                                                 *openspec-commands*
+
+                                                                   *:OpenSpec*
+:OpenSpec [{sub}] [{args}]
+
+Subcommands (name arguments tab-complete from `openspec list`):
+
+  changes            Open the changes picker (also the no-arg default).
+  specs              Open the specs picker.
+  show {name}        Show a change/spec as markdown in a scratch buffer.
+  validate [{name}]  Validate one item; with no name validates all (--all).
+  status {name}      Artifact completion checklist for a change.
+  new [{name}]       Create a change (prompts for a name if omitted).
+  archive {name}     Archive a change (asks to confirm).
+  view               Open the interactive `openspec view` dashboard terminal.
+  init [{args}]      Pass through to `openspec init`.
+
+==============================================================================
+6. TELESCOPE                                               *openspec-telescope*
+
+Load the extension, then use: >
+
+    :Telescope openspec changes
+    :Telescope openspec specs
+<
+The preview pane shows rendered `openspec show` markdown for the highlighted
+item. In-picker mappings (configurable, see |openspec-configuration|):
+
+  <CR>     Open full markdown detail in a split.
+  <C-v>    Validate the selected item.
+  <C-s>    Show artifact status.
+  <C-a>    Archive the selected change (confirm).
+  <C-n>    Create a new change.
+
+==============================================================================
+7. LUA API                                                       *openspec-api*
+
+>lua
+    local os_ = require("openspec")
+    os_.changes()               -- open the changes picker
+    os_.specs()                 -- open the specs picker
+    os_.show("add-user-auth")   -- markdown detail
+    os_.validate("add-user-auth")
+    os_.status("add-user-auth")
+    os_.new_change("my-change")
+    os_.archive("add-user-auth")
+<
+==============================================================================
+8. HEALTH                                                     *openspec-health*
+
+>
+    :checkhealth openspec
+<
+Reports whether the `openspec` binary is found (and its version), whether
+telescope.nvim is available, and whether the current directory is inside an
+OpenSpec project (an `openspec/` directory found by walking upward).
+
+vim:tw=78:ts=8:noet:ft=help:norl:
