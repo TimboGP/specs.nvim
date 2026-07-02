@@ -1,9 +1,9 @@
---- Telescope pickers — the visual, list-style core of openspec.nvim.
+--- Telescope pickers — the visual, list-style core of specs.nvim.
 --- Soft-depends on telescope.nvim: functions no-op with a notice if it's absent.
-local cli = require("openspec.cli")
-local ui = require("openspec.ui")
-local actions_mod = require("openspec.actions")
-local config = require("openspec.config")
+local cli = require("specs.cli")
+local ui = require("specs.ui")
+local actions_mod = require("specs.actions")
+local config = require("specs.config")
 
 local M = {}
 

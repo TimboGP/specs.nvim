@@ -1,6 +1,6 @@
 --- Non-picker operations. Also invoked by the Telescope picker mappings.
-local cli = require("openspec.cli")
-local ui = require("openspec.ui")
+local cli = require("specs.cli")
+local ui = require("specs.ui")
 
 local M = {}
 
@@ -21,7 +21,7 @@ function M.show(name, typ)
       return
     end
     ui.open_scratch(ui.to_lines(res.stdout), {
-      title = "openspec://show/" .. name,
+      title = "specs://show/" .. name,
       filetype = "markdown",
     })
   end)
@@ -72,7 +72,7 @@ function M.validate(name)
     if not any_invalid then
       ui.notify("Validation passed", vim.log.levels.INFO)
     end
-    ui.open_scratch(lines, { title = "openspec://validate", filetype = "markdown" })
+    ui.open_scratch(lines, { title = "specs://validate", filetype = "markdown" })
   end)
 end
 
@@ -104,7 +104,7 @@ function M.status(name)
       end
       table.insert(lines, line)
     end
-    ui.open_scratch(lines, { title = "openspec://status/" .. name, filetype = "markdown" })
+    ui.open_scratch(lines, { title = "specs://status/" .. name, filetype = "markdown" })
   end)
 end
 

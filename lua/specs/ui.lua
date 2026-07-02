@@ -1,5 +1,5 @@
 --- Rendering + notification helpers. The only module that opens windows/buffers.
-local config = require("openspec.config")
+local config = require("specs.config")
 
 local M = {}
 
@@ -10,7 +10,7 @@ function M.notify(msg, level)
   if not config.options.notify then
     return
   end
-  vim.notify(msg, level or vim.log.levels.INFO, { title = "openspec" })
+  vim.notify(msg, level or vim.log.levels.INFO, { title = "specs" })
 end
 
 --- Open a scratch buffer with the given lines.

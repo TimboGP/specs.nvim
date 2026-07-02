@@ -1,15 +1,15 @@
---- :OpenSpec subcommand dispatch + completion.
-local cli = require("openspec.cli")
-local ui = require("openspec.ui")
+--- :Specs subcommand dispatch + completion.
+local cli = require("specs.cli")
+local ui = require("specs.ui")
 
 local M = {}
 
 -- Lazy accessors so plugin/ load stays cheap and telescope stays optional.
 local function pickers()
-  return require("openspec.pickers")
+  return require("specs.pickers")
 end
 local function actions()
-  return require("openspec.actions")
+  return require("specs.actions")
 end
 
 --- @type table<string, fun(args: string[])>
@@ -30,7 +30,7 @@ local handlers = {
     actions().status(args[1])
   end,
   new = function(args)
-    -- Support both `:OpenSpec new demo` and `:OpenSpec new change demo`.
+    -- Support both `:Specs new demo` and `:Specs new change demo`.
     local name = args[1] == "change" and args[2] or args[1]
     actions().new_change(name)
   end,
@@ -56,7 +56,7 @@ local handlers = {
 local subcommands = vim.tbl_keys(handlers)
 table.sort(subcommands)
 
---- Entry point for the :OpenSpec user command.
+--- Entry point for the :Specs user command.
 --- @param opts table nvim_create_user_command callback opts
 function M.dispatch(opts)
   local fargs = opts.fargs or {}
@@ -77,13 +77,13 @@ function M.dispatch(opts)
   handler(vim.list_slice(fargs, 2))
 end
 
---- Completion for :OpenSpec.
+--- Completion for :Specs.
 --- @param arg_lead string
 --- @param cmd_line string
 --- @return string[]
 function M.complete(arg_lead, cmd_line)
   local parts = vim.split(vim.trim(cmd_line), "%s+")
-  -- parts[1] == "OpenSpec"; completing the subcommand itself.
+  -- parts[1] == "Specs"; completing the subcommand itself.
   if #parts <= 2 then
     return vim.tbl_filter(function(s)
       return s:find(arg_lead, 1, true) == 1
@@ -102,7 +102,7 @@ function M.complete(arg_lead, cmd_line)
   if not root then
     return {}
   end
-  local res = vim.system({ require("openspec.config").options.cmd, "list", "--json" }, {
+  local res = vim.system({ require("specs.config").options.cmd, "list", "--json" }, {
     cwd = root,
     text = true,
   }):wait()

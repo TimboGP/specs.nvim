@@ -1,7 +1,7 @@
 --- The single boundary that shells out to the `openspec` CLI.
 --- Everything async (vim.system); JSON decoding and project-root detection live here.
-local config = require("openspec.config")
-local ui = require("openspec.ui")
+local config = require("specs.config")
+local ui = require("specs.ui")
 
 local M = {}
 
@@ -50,7 +50,7 @@ function M.run(args, opts, cb)
   if cwd == nil and opts.require_root ~= false then
     cwd = M.root()
     if not cwd then
-      local err = "Not in an OpenSpec project — run :OpenSpec init"
+      local err = "Not in an OpenSpec project — run :Specs init"
       ui.notify(err, vim.log.levels.ERROR)
       cb(nil, err)
       return

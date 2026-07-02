@@ -1,4 +1,4 @@
-# openspec.nvim
+# specs.nvim
 
 A Neovim wrapper for the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI — drive
 spec-driven development without leaving your editor. Browse changes and specs in
@@ -22,20 +22,20 @@ renders it. It owns no spec logic of its own.
 
 ```lua
 {
-  "TimboGP/openspec.nvim",
+  "TimboGP/specs.nvim",
   dependencies = { "nvim-telescope/telescope.nvim" }, -- optional, enables the pickers
-  cmd = "OpenSpec",
+  cmd = "Specs",
   keys = {
-    { "<leader>oc", "<cmd>OpenSpec changes<cr>", desc = "OpenSpec: changes" },
-    { "<leader>os", "<cmd>OpenSpec specs<cr>",   desc = "OpenSpec: specs" },
+    { "<leader>oc", "<cmd>Specs changes<cr>", desc = "Specs: changes" },
+    { "<leader>os", "<cmd>Specs specs<cr>",   desc = "Specs: specs" },
   },
-  opts = {}, -- lazy calls require("openspec").setup(opts) for you
+  opts = {}, -- lazy calls require("specs").setup(opts) for you
 }
 ```
 
-> `opts = {}` is enough — lazy runs `setup()` on the `openspec` module automatically.
-> Telescope auto-loads the extension the first time you run `:Telescope openspec …`, so
-> an explicit `require("telescope").load_extension("openspec")` is optional.
+> `opts = {}` is enough — lazy runs `setup()` on the `specs` module automatically.
+> Telescope auto-loads the extension the first time you run `:Telescope specs …`, so
+> an explicit `require("telescope").load_extension("specs")` is optional.
 
 ### From a local clone (no GitHub remote)
 
@@ -43,56 +43,56 @@ If the plugin lives in a local checkout, point lazy at it with `dir`:
 
 ```lua
 {
-  dir = "~/Repositories/openspec.nvim", -- path to your local clone
+  dir = "~/Repositories/specs.nvim", -- path to your local clone
   dependencies = { "nvim-telescope/telescope.nvim" },
-  cmd = "OpenSpec",
+  cmd = "Specs",
   keys = {
-    { "<leader>oc", "<cmd>OpenSpec changes<cr>", desc = "OpenSpec: changes" },
-    { "<leader>os", "<cmd>OpenSpec specs<cr>",   desc = "OpenSpec: specs" },
+    { "<leader>oc", "<cmd>Specs changes<cr>", desc = "Specs: changes" },
+    { "<leader>os", "<cmd>Specs specs<cr>",   desc = "Specs: specs" },
   },
   opts = {},
 }
 ```
 
 Alternatively, set a dev path in your lazy setup
-(`{ dev = { path = "~/Repositories" } }`) and use `{ "TimboGP/openspec.nvim", dev = true }`.
+(`{ dev = { path = "~/Repositories" } }`) and use `{ "TimboGP/specs.nvim", dev = true }`.
 
 ### packer.nvim
 
 ```lua
 use({
-  "TimboGP/openspec.nvim",
+  "TimboGP/specs.nvim",
   requires = { "nvim-telescope/telescope.nvim" },
   config = function()
-    require("openspec").setup({})
-    pcall(require("telescope").load_extension, "openspec")
+    require("specs").setup({})
+    pcall(require("telescope").load_extension, "specs")
   end,
 })
 ```
 
 ## Usage
 
-### `:OpenSpec` command
+### `:Specs` command
 
 | Command | Action |
 |---------|--------|
-| `:OpenSpec` / `:OpenSpec changes` | Open the **changes** picker |
-| `:OpenSpec specs` | Open the **specs** picker |
-| `:OpenSpec show <name>` | Show a change/spec as markdown in a scratch buffer |
-| `:OpenSpec validate [name\|all]` | Validate one item, or all with no arg |
-| `:OpenSpec status <name>` | Artifact completion checklist for a change |
-| `:OpenSpec new [name]` | Create a change (prompts if no name) |
-| `:OpenSpec archive <name>` | Archive a change (asks to confirm) |
-| `:OpenSpec view` | Open the interactive `openspec view` dashboard in a terminal |
-| `:OpenSpec init [args]` | Pass through to `openspec init` |
+| `:Specs` / `:Specs changes` | Open the **changes** picker |
+| `:Specs specs` | Open the **specs** picker |
+| `:Specs show <name>` | Show a change/spec as markdown in a scratch buffer |
+| `:Specs validate [name\|all]` | Validate one item, or all with no arg |
+| `:Specs status <name>` | Artifact completion checklist for a change |
+| `:Specs new [name]` | Create a change (prompts if no name) |
+| `:Specs archive <name>` | Archive a change (asks to confirm) |
+| `:Specs view` | Open the interactive `openspec view` dashboard in a terminal |
+| `:Specs init [args]` | Pass through to `openspec init` |
 
 Subcommands and change names tab-complete.
 
 ### Telescope
 
 ```
-:Telescope openspec changes
-:Telescope openspec specs
+:Telescope specs changes
+:Telescope specs specs
 ```
 
 Inside a picker:
@@ -112,7 +112,7 @@ The right-hand preview pane shows the rendered `openspec show` markdown for the 
 `setup()` is optional. Defaults:
 
 ```lua
-require("openspec").setup({
+require("specs").setup({
   cmd = "openspec",  -- executable name or absolute path
   notify = true,     -- emit [openspec] notifications
   picker = {
@@ -132,7 +132,7 @@ require("openspec").setup({
 ## Health
 
 ```
-:checkhealth openspec
+:checkhealth specs
 ```
 
 Reports whether the `openspec` binary is found (and its version), whether telescope.nvim is
@@ -142,7 +142,7 @@ directory found by walking up from the current buffer).
 ## Lua API
 
 ```lua
-local os_ = require("openspec")
+local os_ = require("specs")
 os_.changes()               -- open the changes picker
 os_.specs()                 -- open the specs picker
 os_.show("add-user-auth")   -- markdown detail

@@ -1,32 +1,32 @@
-*openspec.txt*                      Neovim wrapper for the OpenSpec CLI
+*specs.txt*                      Neovim wrapper for the OpenSpec CLI
 
 ==============================================================================
-CONTENTS                                                    *openspec-contents*
+CONTENTS                                                    *specs-contents*
 
-  1. Introduction ......................... |openspec-introduction|
-  2. Requirements ......................... |openspec-requirements|
-  3. Setup ................................ |openspec-setup|
-  4. Configuration ........................ |openspec-configuration|
-  5. Commands ............................. |openspec-commands|
-  6. Telescope ............................ |openspec-telescope|
-  7. Lua API .............................. |openspec-api|
-  8. Health ............................... |openspec-health|
+  1. Introduction ......................... |specs-introduction|
+  2. Requirements ......................... |specs-requirements|
+  3. Setup ................................ |specs-setup|
+  4. Configuration ........................ |specs-configuration|
+  5. Commands ............................. |specs-commands|
+  6. Telescope ............................ |specs-telescope|
+  7. Lua API .............................. |specs-api|
+  8. Health ............................... |specs-health|
 
 ==============================================================================
-1. INTRODUCTION                                         *openspec-introduction*
+1. INTRODUCTION                                         *specs-introduction*
 
-openspec.nvim is a thin wrapper around the OpenSpec CLI. It shells out to
+specs.nvim is a thin wrapper around the OpenSpec CLI. It shells out to
 `openspec`, parses its `--json` output, and renders it — enabling
 spec-driven-development workflows without leaving Neovim.
 
 Two surfaces are provided:
-  - The |:OpenSpec| command with subcommands.
-  - Visual, list-style Telescope pickers (see |openspec-telescope|).
+  - The |:Specs| command with subcommands.
+  - Visual, list-style Telescope pickers (see |specs-telescope|).
 
 OpenSpec: https://github.com/Fission-AI/OpenSpec
 
 ==============================================================================
-2. REQUIREMENTS                                         *openspec-requirements*
+2. REQUIREMENTS                                         *specs-requirements*
 
   - Neovim >= 0.10 (uses |vim.system()|).
   - The `openspec` CLI on your `$PATH`.
@@ -34,30 +34,30 @@ OpenSpec: https://github.com/Fission-AI/OpenSpec
     pickers. All other features work without it.
 
 ==============================================================================
-3. SETUP                                                       *openspec-setup*
+3. SETUP                                                       *specs-setup*
 
 Calling setup is optional; sensible defaults apply without it. >lua
 
-    require("openspec").setup({})
-    pcall(require("telescope").load_extension, "openspec")
+    require("specs").setup({})
+    pcall(require("telescope").load_extension, "specs")
 <
 With lazy.nvim: >lua
 
     {
-      "TimboGP/openspec.nvim",
+      "TimboGP/specs.nvim",
       dependencies = { "nvim-telescope/telescope.nvim" }, -- optional
-      cmd = "OpenSpec",
-      opts = {}, -- lazy runs require("openspec").setup(opts)
+      cmd = "Specs",
+      opts = {}, -- lazy runs require("specs").setup(opts)
     }
 
-Telescope auto-loads the extension on first `:Telescope openspec` use, so an
+Telescope auto-loads the extension on first `:Telescope specs` use, so an
 explicit `load_extension` call is optional.
 <
 ==============================================================================
-4. CONFIGURATION                                       *openspec-configuration*
+4. CONFIGURATION                                       *specs-configuration*
 
-                                                            *openspec.setup()*
-require("openspec").setup({opts})
+                                                            *specs.setup()*
+require("specs").setup({opts})
 
 Defaults: >lua
 
@@ -83,10 +83,10 @@ Defaults: >lua
 `view`     `split` is the command used to create the `openspec view` terminal.
 
 ==============================================================================
-5. COMMANDS                                                 *openspec-commands*
+5. COMMANDS                                                 *specs-commands*
 
-                                                                   *:OpenSpec*
-:OpenSpec [{sub}] [{args}]
+                                                                   *:Specs*
+:Specs [{sub}] [{args}]
 
 Subcommands (name arguments tab-complete from `openspec list`):
 
@@ -101,15 +101,15 @@ Subcommands (name arguments tab-complete from `openspec list`):
   init [{args}]      Pass through to `openspec init`.
 
 ==============================================================================
-6. TELESCOPE                                               *openspec-telescope*
+6. TELESCOPE                                               *specs-telescope*
 
 Load the extension, then use: >
 
-    :Telescope openspec changes
-    :Telescope openspec specs
+    :Telescope specs changes
+    :Telescope specs specs
 <
 The preview pane shows rendered `openspec show` markdown for the highlighted
-item. In-picker mappings (configurable, see |openspec-configuration|):
+item. In-picker mappings (configurable, see |specs-configuration|):
 
   <CR>     Open full markdown detail in a split.
   <C-v>    Validate the selected item.
@@ -118,10 +118,10 @@ item. In-picker mappings (configurable, see |openspec-configuration|):
   <C-n>    Create a new change.
 
 ==============================================================================
-7. LUA API                                                       *openspec-api*
+7. LUA API                                                       *specs-api*
 
 >lua
-    local os_ = require("openspec")
+    local os_ = require("specs")
     os_.changes()               -- open the changes picker
     os_.specs()                 -- open the specs picker
     os_.show("add-user-auth")   -- markdown detail
@@ -131,10 +131,10 @@ item. In-picker mappings (configurable, see |openspec-configuration|):
     os_.archive("add-user-auth")
 <
 ==============================================================================
-8. HEALTH                                                     *openspec-health*
+8. HEALTH                                                     *specs-health*
 
 >
-    :checkhealth openspec
+    :checkhealth specs
 <
 Reports whether the `openspec` binary is found (and its version), whether
 telescope.nvim is available, and whether the current directory is inside an

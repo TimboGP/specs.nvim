@@ -1,6 +1,6 @@
---- :checkhealth openspec
-local config = require("openspec.config")
-local cli = require("openspec.cli")
+--- :checkhealth specs
+local config = require("specs.config")
+local cli = require("specs.cli")
 
 local M = {}
 
@@ -12,7 +12,7 @@ local warn = health.warn or health.report_warn
 local error = health.error or health.report_error
 
 function M.check()
-  start("openspec.nvim")
+  start("specs.nvim")
 
   local cmd = config.options.cmd
   if vim.fn.executable(cmd) == 1 then
@@ -29,7 +29,7 @@ function M.check()
   if pcall(require, "telescope") then
     ok("telescope.nvim is installed (pickers enabled)")
   else
-    warn("telescope.nvim not found — :OpenSpec changes/specs pickers are unavailable", {
+    warn("telescope.nvim not found — :Specs changes/specs pickers are unavailable", {
       "Install nvim-telescope/telescope.nvim to enable the visual list UI",
     })
   end
@@ -39,7 +39,7 @@ function M.check()
     ok("Inside an OpenSpec project: " .. root)
   else
     warn("Current directory is not inside an OpenSpec project", {
-      "Run `:OpenSpec init` to initialize one",
+      "Run `:Specs init` to initialize one",
     })
   end
 end
