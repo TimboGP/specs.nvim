@@ -57,6 +57,35 @@ expandable.
 - WHEN the user toggles it again
 - THEN its children are hidden and its already-fetched data is retained for the next expand
 
+### Requirement: Task Checkboxes
+Once a change's `tasks` artifact is unblocked, it SHALL itself be expandable into
+one leaf node per `- [ ]`/`- [x]` line parsed from its tasks.md, and selecting a
+task node SHALL toggle its checkbox and persist the change immediately.
+
+#### Scenario: Expanding tasks
+- GIVEN a change's `tasks` artifact has status other than `blocked`
+- WHEN the user toggles it open
+- THEN each checkbox line in its tasks.md is rendered as a `[ ]`/`[x]` leaf row
+
+#### Scenario: Blocked tasks are not expandable
+- GIVEN a change's `tasks` artifact has status `blocked`
+- WHEN the user views it
+- THEN it is rendered as a plain, non-expandable row, same as any other artifact
+
+#### Scenario: Toggling a task
+- WHEN the user presses `<CR>` on a task row
+- THEN its `- [ ]`/`- [x]` marker is flipped in tasks.md and the row's icon updates immediately
+
+#### Scenario: Toggling through an open buffer
+- GIVEN tasks.md is already open in a Neovim buffer
+- WHEN a task in it is toggled from the dashboard
+- THEN that buffer's line is edited and saved, rather than writing the file out from under it
+
+#### Scenario: No tasks parsed
+- GIVEN tasks.md contains no checkbox lines
+- WHEN the `tasks` artifact is expanded
+- THEN a single informational row indicates there are no tasks
+
 ### Requirement: Jump-to Preview
 Selecting a change or spec node SHALL open (or reuse, if already open) a preview
 window showing that item's `openspec show` markdown, updating in place on
@@ -68,14 +97,14 @@ subsequent selections rather than opening a new split each time.
 - AND selecting a different item updates the same preview buffer's contents
 
 #### Scenario: Selecting a section header
-- WHEN the user presses `<CR>` on a section header
-- THEN the section toggles expanded/collapsed, the same as pressing the toggle key
+- WHEN the user presses `<CR>` on a section header or another expandable, non-leaf node (e.g. the `tasks` artifact)
+- THEN the node toggles expanded/collapsed, the same as pressing the toggle key
 
 ### Requirement: Keymaps
-The dashboard buffer SHALL provide `<CR>` (select/toggle), `o` and `<Tab>` (toggle
-expand/collapse), `R` (refresh), and `q` (close), plus the configured
-`picker.mappings` for validate/status/archive/new applied to the node under the
-cursor.
+The dashboard buffer SHALL provide `<CR>` (select/toggle/task-toggle, depending on
+node kind), `o` and `<Tab>` (toggle expand/collapse), `R` (refresh), and `q`
+(close), plus the configured `picker.mappings` for validate/status/archive/new
+applied to the node under the cursor.
 
 #### Scenario: Refreshing
 - WHEN the user presses `R`

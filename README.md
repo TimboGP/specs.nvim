@@ -101,12 +101,15 @@ close it.
 
 | Key | Action |
 |-----|--------|
-| `<CR>` | On a change/spec: open/update the markdown preview pane. On a section: toggle expand/collapse |
+| `<CR>` | Change/spec: open/update the preview pane. Section/tasks: toggle expand/collapse. Task: toggle its checkbox |
 | `o` / `<Tab>` | Toggle expand/collapse of the node under the cursor |
 | `R` | Refresh from the CLI (keeps expand state) |
 | `q` | Close the dashboard and its preview pane |
 
 Expanding a change lazily fetches its artifact checklist (`openspec status --change`).
+Once unblocked, the `tasks` artifact expands further into its individual `- [ ]`
+checkboxes — toggling one edits and saves `tasks.md` directly (through an
+already-open buffer for it, if there is one) without leaving the dashboard.
 The `validate`/`status`/`archive`/`new` picker mappings (below) also work here, on
 whichever change/spec is under the cursor.
 
