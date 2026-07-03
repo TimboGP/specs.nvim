@@ -79,14 +79,26 @@ use({
 | `:Specs` / `:Specs changes` | Open the **changes** picker |
 | `:Specs specs` | Open the **specs** picker |
 | `:Specs show <name>` | Show a change/spec as markdown in a scratch buffer |
-| `:Specs validate [name\|all]` | Validate one item, or all with no arg |
+| `:Specs validate [name\|all]` | Validate one item, or all with no arg — issues open in the quickfix list |
 | `:Specs status <name>` | Artifact completion checklist for a change |
-| `:Specs new [name]` | Create a change (prompts if no name) |
+| `:Specs new [name]` | Create a change (prompts if no name), then open its first artifact |
 | `:Specs archive <name>` | Archive a change (asks to confirm) |
+| `:Specs diff <name>` | Diff a change's proposed spec deltas against the current specs |
 | `:Specs view` | Open the navigable changes/specs dashboard |
 | `:Specs init [args]` | Pass through to `openspec init` |
 
 Subcommands and change names tab-complete.
+
+`:Specs new` doesn't stop at creating the change directory: it opens the first
+ready artifact (normally `proposal.md`) in a new tab, seeded from the active
+schema's template (via `openspec templates`) so you land on a filled-in skeleton
+instead of a blank file.
+
+`:Specs diff <name>` opens one tab per capability the change touches, each a
+Neovim diff (`vert diffsplit`) between the current `openspec/specs/<capability>/spec.md`
+and the change's proposed `openspec/changes/<name>/specs/<capability>/spec.md`. A
+capability that doesn't exist yet just diffs against an empty buffer, showing the
+whole delta as added.
 
 ### Dashboard
 
@@ -96,12 +108,16 @@ close it.
 
 | Key | Action |
 |-----|--------|
-| `<CR>` | On a change/spec: open/update the markdown preview pane. On a section: toggle expand/collapse |
+| `<CR>` | Change/spec: open/update the preview pane. Section/tasks: toggle expand/collapse. Task: toggle its checkbox |
 | `o` / `<Tab>` | Toggle expand/collapse of the node under the cursor |
+| `d` | On a change: open its spec delta diff (see `:Specs diff` above) |
 | `R` | Refresh from the CLI (keeps expand state) |
 | `q` | Close the dashboard and its preview pane |
 
 Expanding a change lazily fetches its artifact checklist (`openspec status --change`).
+Once unblocked, the `tasks` artifact expands further into its individual `- [ ]`
+checkboxes — toggling one edits and saves `tasks.md` directly (through an
+already-open buffer for it, if there is one) without leaving the dashboard.
 The `validate`/`status`/`archive`/`new` picker mappings (below) also work here, on
 whichever change/spec is under the cursor.
 

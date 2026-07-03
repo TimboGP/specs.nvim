@@ -22,11 +22,46 @@ local function change_icon(status)
 end
 
 local function artifact_icon(status)
-  local by_status = { ready = "✓", blocked = "⋯", complete = "✓", pending = "○" }
+  -- Real values from `openspec status --change`: "blocked" (deps unmet),
+  -- "ready" (unblocked, not yet written), "done" (artifact file exists).
+  local by_status = { done = "✓", ready = "○", blocked = "⋯" }
   return by_status[status] or "•"
 end
 
+--- Parse a tasks.md file's `- [ ]`/`- [x]` lines into leaf task nodes carrying
+--- enough to toggle and rewrite that exact line later.
+--- @param path string absolute path to tasks.md
+--- @return table[]
+local function parse_tasks(path)
+  local ok, lines = pcall(vim.fn.readfile, path)
+  if not ok then
+    return { { key = path .. ":err", kind = "info", label = "(tasks file unavailable)", expandable = false } }
+  end
+  local tasks = {}
+  for i, line in ipairs(lines) do
+    local mark, desc = line:match("^%s*%-%s%[([ xX])%]%s*(.*)$")
+    if mark then
+      local checked = mark ~= " "
+      table.insert(tasks, {
+        key = path .. ":" .. i,
+        kind = "task",
+        label = ("[%s] %s"):format(checked and "x" or " ", desc),
+        expandable = false,
+        file = path,
+        lnum = i,
+        checked = checked,
+      })
+    end
+  end
+  if #tasks == 0 then
+    tasks[1] = { key = path .. ":none", kind = "info", label = "(no tasks)", expandable = false }
+  end
+  return tasks
+end
+
 --- Fetch and shape a change's artifact checklist into leaf nodes (lazy child loader).
+--- The `tasks` artifact, once unblocked, is itself expandable into its individual
+--- checkbox tasks.
 --- @param node table the change node being expanded
 --- @param cb fun() called once node.children is populated
 local function load_change_children(node, cb)
@@ -35,12 +70,26 @@ local function load_change_children(node, cb)
     if err or not data then
       kids[1] = { key = node.key .. ":err", kind = "info", label = "(status unavailable)", expandable = false }
     else
+      local root = cli.root()
       for _, a in ipairs(data.artifacts or {}) do
         local line = ("%s %-10s %s"):format(artifact_icon(a.status), a.status, a.id)
         if a.missingDeps and #a.missingDeps > 0 then
           line = line .. "  (needs: " .. table.concat(a.missingDeps, ", ") .. ")"
         end
-        table.insert(kids, { key = node.key .. ":" .. a.id, kind = "artifact", label = line, expandable = false })
+        local artifact_node = { key = node.key .. ":" .. a.id, kind = "artifact", label = line, expandable = false }
+        if a.id == "tasks" and a.status ~= "blocked" and root and a.outputPath then
+          local path = root .. "/openspec/changes/" .. node.name .. "/" .. a.outputPath
+          artifact_node.expandable = true
+          artifact_node.expanded = false
+          artifact_node.loaded = false
+          artifact_node.children = {}
+          artifact_node.load = function(n, done)
+            n.children = parse_tasks(path)
+            n.loaded = true
+            done()
+          end
+        end
+        table.insert(kids, artifact_node)
       end
       if #kids == 0 then
         kids[1] = { key = node.key .. ":none", kind = "info", label = "(no artifacts)", expandable = false }
@@ -200,6 +249,59 @@ local function toggle_node(buf, win)
   render(buf)
 end
 
+--- Flip a task's `- [ ]`/`- [x]` line in its tasks.md, editing through any
+--- already-open buffer for that file (and saving it) so we never race a
+--- buffer the user has open, or write straight to disk otherwise.
+--- @param buf integer dashboard buffer
+--- @param node table task node ({ file, lnum, checked })
+local function toggle_task(buf, node)
+  local open_buf = vim.fn.bufnr(node.file)
+  local loaded = open_buf ~= -1 and vim.api.nvim_buf_is_loaded(open_buf)
+  local lines
+  if loaded then
+    lines = vim.api.nvim_buf_get_lines(open_buf, 0, -1, false)
+  else
+    local ok, file_lines = pcall(vim.fn.readfile, node.file)
+    if not ok then
+      ui.notify("Failed to read " .. node.file, vim.log.levels.ERROR)
+      return
+    end
+    lines = file_lines
+  end
+
+  local line = lines[node.lnum]
+  if not line then
+    return
+  end
+  local new_line, checked
+  if line:match("%[ %]") then
+    new_line, checked = (line:gsub("%[ %]", "[x]", 1)), true
+  elseif line:match("%[[xX]%]") then
+    new_line, checked = (line:gsub("%[[xX]%]", "[ ]", 1)), false
+  else
+    return
+  end
+
+  if loaded then
+    vim.api.nvim_buf_set_lines(open_buf, node.lnum - 1, node.lnum, false, { new_line })
+    vim.api.nvim_buf_call(open_buf, function()
+      vim.cmd("silent write")
+    end)
+  else
+    lines[node.lnum] = new_line
+    local ok = pcall(vim.fn.writefile, lines, node.file)
+    if not ok then
+      ui.notify("Failed to write " .. node.file, vim.log.levels.ERROR)
+      return
+    end
+  end
+
+  node.checked = checked
+  node.label = new_line:match("^%s*%-%s%[.%]%s*(.*)$")
+  node.label = ("[%s] %s"):format(checked and "x" or " ", node.label or "")
+  render(buf)
+end
+
 local function select_node(buf, win)
   local node = node_at_cursor(buf, win)
   if not node then
@@ -207,6 +309,8 @@ local function select_node(buf, win)
   end
   if node.kind == "change" or node.kind == "spec" then
     preview_node(buf, node)
+  elseif node.kind == "task" then
+    toggle_task(buf, node)
   elseif node.expandable then
     toggle_node(buf, win)
   end
@@ -225,6 +329,8 @@ local function run_action_on_node(buf, win, action)
     actions.archive(node.name, function()
       M.refresh(buf)
     end)
+  elseif action == "diff" and node.kind == "change" then
+    actions.diff(node.name)
   end
 end
 
@@ -318,6 +424,9 @@ function M.open()
   end)
   keymap(maps.archive, function()
     run_action_on_node(buf, win, "archive")
+  end)
+  keymap("d", function()
+    run_action_on_node(buf, win, "diff")
   end)
   keymap(maps.new, function()
     actions.new_change(nil, function()

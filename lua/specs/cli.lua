@@ -40,7 +40,7 @@ end
 
 --- Run an openspec command asynchronously.
 --- @param args string[] arguments after the executable (e.g. { "list" })
---- @param opts table|nil { cwd?, require_root? (default true) }
+--- @param opts table|nil { cwd?, require_root? (default true), ok_codes? (default {0}) }
 --- @param cb fun(result: { code: integer, stdout: string, stderr: string }|nil, err: string|nil)
 function M.run(args, opts, cb)
   opts = opts or {}
@@ -60,9 +60,10 @@ function M.run(args, opts, cb)
   local full = { cmd }
   vim.list_extend(full, args)
 
+  local ok_codes = opts.ok_codes or { 0 }
   vim.system(full, { cwd = cwd, text = true }, function(res)
     vim.schedule(function()
-      if res.code ~= 0 then
+      if not vim.list_contains(ok_codes, res.code) then
         local err = (res.stderr ~= "" and res.stderr) or ("openspec exited with code " .. res.code)
         ui.notify(vim.trim(err), vim.log.levels.ERROR)
         cb(res, err)
@@ -73,7 +74,11 @@ function M.run(args, opts, cb)
   end)
 end
 
---- Run an openspec command with `--json` and decode stdout.
+--- Run an openspec command with `--json` and decode stdout. When `opts.ok_codes`
+--- widens the accepted exit codes (e.g. `validate`'s "issues found" exit 1),
+--- stdout is still checked for real JSON before trusting that exit code: a
+--- widened code with non-JSON stdout (e.g. an "Unknown item" message) is
+--- reported as an error rather than silently swallowed.
 --- @param args string[]
 --- @param cb fun(data: table|nil, err: string|nil)
 --- @param opts table|nil forwarded to M.run
@@ -81,25 +86,35 @@ function M.run_json(args, cb, opts)
   local json_args = vim.deepcopy(args)
   table.insert(json_args, "--json")
   M.run(json_args, opts, function(res, err)
-    if err or not res then
+    if not res then
       cb(nil, err)
       return
     end
     local trimmed = vim.trim(res.stdout)
-    if trimmed == "" or not trimmed:match("^[%[{]") then
-      -- Some subcommands (e.g. `list --specs`) print a plain "None found"
-      -- message instead of JSON when the result set is empty, even with --json.
-      cb({}, nil)
-      return
-    end
-    local ok, decoded = pcall(vim.json.decode, trimmed)
-    if not ok then
+    if trimmed:match("^[%[{]") then
+      local ok, decoded = pcall(vim.json.decode, trimmed)
+      if ok then
+        cb(decoded, nil)
+        return
+      end
       local msg = "Failed to parse openspec JSON output"
       ui.notify(msg, vim.log.levels.ERROR)
       cb(nil, msg)
       return
     end
-    cb(decoded, nil)
+    if err then
+      cb(nil, err)
+      return
+    end
+    if res.code ~= 0 then
+      local msg = (res.stderr ~= "" and vim.trim(res.stderr)) or ("openspec exited with code " .. res.code)
+      ui.notify(msg, vim.log.levels.ERROR)
+      cb(nil, msg)
+      return
+    end
+    -- Some subcommands (e.g. `list --specs`) print a plain "None found"
+    -- message instead of JSON when the result set is empty, even with --json.
+    cb({}, nil)
   end)
 end
 

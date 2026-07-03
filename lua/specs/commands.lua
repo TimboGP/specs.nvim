@@ -40,6 +40,9 @@ local handlers = {
   archive = function(args)
     actions().archive(args[1])
   end,
+  diff = function(args)
+    actions().diff(args[1])
+  end,
   view = function()
     dashboard().open()
   end,
@@ -95,7 +98,7 @@ function M.complete(arg_lead, cmd_line)
 
   -- Second-argument completion: item names for name-taking subcommands.
   local sub = parts[2]
-  local wants_names = { show = "list", validate = "list", status = "list", archive = "list" }
+  local wants_names = { show = "list", validate = "list", status = "list", archive = "list", diff = "list" }
   if not wants_names[sub] then
     return {}
   end

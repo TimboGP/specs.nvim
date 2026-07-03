@@ -68,23 +68,42 @@ to callbacks on the main event loop.
 - AND the callback is invoked inside `vim.schedule` on the main loop
 
 ### Requirement: Error Surfacing
-A non-zero exit SHALL be surfaced to the user and to the caller.
+An exit code outside the accepted set SHALL be surfaced to the user and to the
+caller; callers MAY widen the accepted set beyond the default of `{0}` for
+subcommands where a non-zero exit is an expected outcome, not a tool failure.
 
 #### Scenario: Non-zero exit
-- WHEN `openspec` exits with a non-zero code
+- WHEN `openspec` exits with a code not in the accepted set
 - THEN the trimmed stderr (or a fallback `openspec exited with code <n>` message) is notified at ERROR level and passed to the callback as the error
+
+#### Scenario: Widened exit code
+- GIVEN a caller passes `ok_codes` including a non-zero code (e.g. `{0, 1}` for `validate`, whose exit is 1 when any item is invalid)
+- WHEN `openspec` exits with that code
+- THEN no error notification fires and the callback receives the result with no error
 
 ### Requirement: JSON Mode
 A JSON run SHALL append `--json` to the arguments and decode stdout, reporting a
-parse failure rather than passing malformed data downstream.
+parse failure rather than passing malformed data downstream. Whether an exit code
+was widened via `ok_codes`, the shape of stdout — not the exit code alone — decides
+whether the result is real data, an empty result, or an error.
 
 #### Scenario: Successful decode
-- WHEN a JSON run completes successfully
-- THEN `--json` was appended and the decoded table is passed to the callback
+- WHEN stdout is valid JSON, regardless of exit code
+- THEN `--json` was appended and the decoded table is passed to the callback with no error
 
 #### Scenario: Decode failure
-- WHEN stdout is not valid JSON
+- WHEN stdout looks like JSON (starts with `{` or `[`) but fails to parse
 - THEN an ERROR notification reports the parse failure and the callback receives `nil` data
+
+#### Scenario: Empty non-JSON result
+- GIVEN the exit code is `0` and stdout is not JSON (e.g. `list --specs` printing a plain "None found" message)
+- WHEN the result is processed
+- THEN the callback receives an empty table with no error
+
+#### Scenario: Widened exit code with non-JSON stdout is still an error
+- GIVEN a caller's `ok_codes` accepted the exit code, but stdout is not JSON (e.g. `validate <name>` on an unresolvable item)
+- WHEN the result is processed
+- THEN an ERROR notification reports the message and the callback receives `nil` data, even though the exit code itself was accepted
 
 ### Requirement: Configurable Executable
 Every invocation SHALL use the configured executable name or path.
