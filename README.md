@@ -83,6 +83,7 @@ use({
 | `:Specs status <name>` | Artifact completion checklist for a change |
 | `:Specs new [name]` | Create a change (prompts if no name), then open its first artifact |
 | `:Specs archive <name>` | Archive a change (asks to confirm) |
+| `:Specs diff <name>` | Diff a change's proposed spec deltas against the current specs |
 | `:Specs view` | Open the navigable changes/specs dashboard |
 | `:Specs init [args]` | Pass through to `openspec init` |
 
@@ -92,6 +93,12 @@ Subcommands and change names tab-complete.
 ready artifact (normally `proposal.md`) in a new tab, seeded from the active
 schema's template (via `openspec templates`) so you land on a filled-in skeleton
 instead of a blank file.
+
+`:Specs diff <name>` opens one tab per capability the change touches, each a
+Neovim diff (`vert diffsplit`) between the current `openspec/specs/<capability>/spec.md`
+and the change's proposed `openspec/changes/<name>/specs/<capability>/spec.md`. A
+capability that doesn't exist yet just diffs against an empty buffer, showing the
+whole delta as added.
 
 ### Dashboard
 
@@ -103,6 +110,7 @@ close it.
 |-----|--------|
 | `<CR>` | Change/spec: open/update the preview pane. Section/tasks: toggle expand/collapse. Task: toggle its checkbox |
 | `o` / `<Tab>` | Toggle expand/collapse of the node under the cursor |
+| `d` | On a change: open its spec delta diff (see `:Specs diff` above) |
 | `R` | Refresh from the CLI (keeps expand state) |
 | `q` | Close the dashboard and its preview pane |
 

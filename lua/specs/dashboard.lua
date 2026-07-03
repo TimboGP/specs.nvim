@@ -329,6 +329,8 @@ local function run_action_on_node(buf, win, action)
     actions.archive(node.name, function()
       M.refresh(buf)
     end)
+  elseif action == "diff" and node.kind == "change" then
+    actions.diff(node.name)
   end
 end
 
@@ -422,6 +424,9 @@ function M.open()
   end)
   keymap(maps.archive, function()
     run_action_on_node(buf, win, "archive")
+  end)
+  keymap("d", function()
+    run_action_on_node(buf, win, "diff")
   end)
   keymap(maps.new, function()
     actions.new_change(nil, function()

@@ -41,6 +41,48 @@ function M.show_text(name, typ, cb)
   end)
 end
 
+--- Open a diff of a change's proposed spec deltas against the current top-level
+--- spec they touch, one tab per capability. We don't reconstruct the merged
+--- result ourselves — that's `openspec archive`'s job — we just diff the two
+--- real files (Neovim's diff engine handles a missing "before" file, for a
+--- brand-new capability, as entirely-added content).
+--- @param name string change name
+function M.diff(name)
+  if not name or name == "" then
+    ui.notify("diff: missing change name", vim.log.levels.WARN)
+    return
+  end
+  cli.run_json({ "show", name, "--type", "change", "--deltas-only" }, function(data, err)
+    if err or not data then
+      return
+    end
+    local deltas = data.deltas or {}
+    if #deltas == 0 then
+      ui.notify("No spec deltas found for '" .. name .. "'", vim.log.levels.INFO)
+      return
+    end
+    local root = cli.root()
+    if not root then
+      return
+    end
+
+    local seen, capabilities = {}, {}
+    for _, d in ipairs(deltas) do
+      if d.spec and not seen[d.spec] then
+        seen[d.spec] = true
+        table.insert(capabilities, d.spec)
+      end
+    end
+
+    for _, capability in ipairs(capabilities) do
+      local before = root .. "/openspec/specs/" .. capability .. "/spec.md"
+      local after = root .. "/openspec/changes/" .. name .. "/specs/" .. capability .. "/spec.md"
+      vim.cmd("tabedit " .. vim.fn.fnameescape(after))
+      vim.cmd("vert diffsplit " .. vim.fn.fnameescape(before))
+    end
+  end)
+end
+
 --- Line number of the Nth (0-indexed) "### Requirement:" heading in a spec file,
 --- matching the `requirements.<N>.text` issue paths the CLI emits for specs.
 --- @param file string

@@ -2,11 +2,13 @@
 
 ## Purpose
 The non-picker operations that render OpenSpec data or drive the CLI: showing an
-item as markdown, validating, inspecting artifact status, creating a change, and
-archiving a change. These operations are invoked both from `:Specs` subcommands and
-from in-picker mappings, and they render results into read-only scratch buffers.
+item as markdown, validating, inspecting artifact status, creating a change,
+archiving a change, and diffing a change's proposed spec deltas. These operations
+are invoked both from `:Specs` subcommands and from in-picker mappings, and they
+render results into read-only scratch buffers or native diff splits.
 The `:Specs view` dashboard is a separate capability — see dashboard-view — but
-reuses these operations for its validate/status/archive/new and preview actions.
+reuses these operations for its validate/status/archive/new/diff and preview
+actions.
 
 ## Requirements
 
@@ -151,4 +153,28 @@ an optional callback on success.
 
 #### Scenario: Missing name
 - WHEN archive is invoked with an empty or missing name
+- THEN a WARN notification reports the missing change name and nothing happens
+
+### Requirement: Diff Change
+The diff operation SHALL open a native Neovim diff, one tab per capability the
+change touches, between the current top-level spec and the change's proposed
+delta for that capability, without reconstructing the merged result itself.
+
+#### Scenario: Diffing a change's deltas
+- WHEN diff is invoked for a change
+- THEN `openspec show <name> --type change --deltas-only --json` runs to discover which capabilities it touches
+- AND for each distinct capability, a new tab opens with `openspec/changes/<name>/specs/<capability>/spec.md`, vertically diff-split against `openspec/specs/<capability>/spec.md`
+
+#### Scenario: Brand-new capability
+- GIVEN a touched capability has no existing top-level spec file yet
+- WHEN its diff is opened
+- THEN the diff's "before" side is an empty buffer, so the whole delta shows as added
+
+#### Scenario: No deltas
+- GIVEN a change has no spec deltas
+- WHEN diff is invoked
+- THEN an INFO notification reports that no deltas were found and no tabs open
+
+#### Scenario: Missing name
+- WHEN diff is invoked with an empty or missing name
 - THEN a WARN notification reports the missing change name and nothing happens

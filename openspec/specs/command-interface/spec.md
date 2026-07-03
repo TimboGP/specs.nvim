@@ -51,14 +51,15 @@ warn the user and list the available subcommands.
 
 ### Requirement: Supported Subcommands
 The command SHALL support the subcommands `changes`, `specs`, `show`, `validate`,
-`status`, `new`, `archive`, `view`, and `init`, each mapping to its documented action.
+`status`, `new`, `archive`, `diff`, `view`, and `init`, each mapping to its
+documented action.
 
 #### Scenario: Listing subcommands
 - WHEN the user runs `:Specs changes` or `:Specs specs`
 - THEN the corresponding Telescope picker is opened
 
 #### Scenario: Item subcommands take a name argument
-- WHEN the user runs `:Specs show <name>`, `:Specs status <name>`, or `:Specs archive <name>`
+- WHEN the user runs `:Specs show <name>`, `:Specs status <name>`, `:Specs archive <name>`, or `:Specs diff <name>`
 - THEN the first argument is forwarded as the item name to the matching operation
 
 #### Scenario: Validate accepts an optional target
@@ -78,7 +79,7 @@ The command SHALL support the subcommands `changes`, `specs`, `show`, `validate`
 ### Requirement: Tab Completion
 The command SHALL complete the subcommand on the first argument, and SHALL complete
 OpenSpec item names on the second argument for the name-taking subcommands `show`,
-`validate`, `status`, and `archive`.
+`validate`, `status`, `archive`, and `diff`.
 
 #### Scenario: Subcommand completion
 - WHEN the user requests completion at the first argument position with a partial lead
@@ -86,7 +87,7 @@ OpenSpec item names on the second argument for the name-taking subcommands `show
 
 #### Scenario: Item-name completion
 - GIVEN the current directory is inside an OpenSpec project
-- WHEN the user requests completion of the second argument for `show`, `validate`, `status`, or `archive`
+- WHEN the user requests completion of the second argument for `show`, `validate`, `status`, `archive`, or `diff`
 - THEN change names from `openspec list --json` that begin with the lead are returned
 
 #### Scenario: No completion outside a project or for other subcommands

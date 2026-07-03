@@ -103,6 +103,8 @@ Subcommands (name arguments tab-complete from `openspec list`):
                      its first ready artifact in a new tab, seeded from the
                      schema template.
   archive {name}     Archive a change (asks to confirm).
+  diff {name}        Diff a change's proposed spec deltas against the current
+                     specs, one tab per touched capability (`vert diffsplit`).
   view               Open the navigable changes/specs dashboard (see below).
   init [{args}]      Pass through to `openspec init`.
 
@@ -133,6 +135,7 @@ Keys (buffer-local, not user-configurable except where noted):
            Section or the "tasks" artifact: toggle expand/collapse.
            Task: toggle its checkbox.
   o / <Tab> Toggle expand/collapse of the node under the cursor.
+  d        On a change: open its spec delta diff (see |:Specs| diff).
   R        Refresh data from the CLI (preserves expand state).
   q        Close the dashboard and its preview pane.
 

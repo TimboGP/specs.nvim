@@ -102,9 +102,9 @@ subsequent selections rather than opening a new split each time.
 
 ### Requirement: Keymaps
 The dashboard buffer SHALL provide `<CR>` (select/toggle/task-toggle, depending on
-node kind), `o` and `<Tab>` (toggle expand/collapse), `R` (refresh), and `q`
-(close), plus the configured `picker.mappings` for validate/status/archive/new
-applied to the node under the cursor.
+node kind), `o` and `<Tab>` (toggle expand/collapse), `d` (diff, on a change node),
+`R` (refresh), and `q` (close), plus the configured `picker.mappings` for
+validate/status/archive/new applied to the node under the cursor.
 
 #### Scenario: Refreshing
 - WHEN the user presses `R`
@@ -118,4 +118,9 @@ applied to the node under the cursor.
 #### Scenario: Action mappings act on the node under the cursor
 - WHEN the user presses the configured validate, status, or archive mapping with the cursor on a change or spec node
 - THEN the corresponding action from change-operations runs against that node's name
+
+#### Scenario: Diffing a change from the dashboard
+- WHEN the user presses `d` with the cursor on a change node
+- THEN the diff operation from change-operations runs against that change
+- AND pressing `d` on a spec node or any other node kind does nothing
 - AND pressing the new mapping prompts for a new change name and refreshes the tree on success
