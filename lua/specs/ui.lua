@@ -45,12 +45,4 @@ function M.to_lines(text)
   return vim.split(text, "\n", { plain = true })
 end
 
---- Open the interactive `openspec view` dashboard in a terminal window.
-function M.view()
-  local cfg = config.options
-  vim.cmd(cfg.view.split)
-  vim.fn.jobstart({ cfg.cmd, "view" }, { term = true })
-  vim.cmd("startinsert")
-end
-
 return M

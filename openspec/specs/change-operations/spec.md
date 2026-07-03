@@ -2,10 +2,11 @@
 
 ## Purpose
 The non-picker operations that render OpenSpec data or drive the CLI: showing an
-item as markdown, validating, inspecting artifact status, creating a change,
-archiving a change, and launching the interactive `openspec view` dashboard. These
-operations are invoked both from `:Specs` subcommands and from in-picker mappings,
-and they render results into read-only scratch buffers or a terminal split.
+item as markdown, validating, inspecting artifact status, creating a change, and
+archiving a change. These operations are invoked both from `:Specs` subcommands and
+from in-picker mappings, and they render results into read-only scratch buffers.
+The `:Specs view` dashboard is a separate capability — see dashboard-view — but
+reuses these operations for its validate/status/archive/new and preview actions.
 
 ## Requirements
 
@@ -95,12 +96,3 @@ an optional callback on success.
 #### Scenario: Missing name
 - WHEN archive is invoked with an empty or missing name
 - THEN a WARN notification reports the missing change name and nothing happens
-
-### Requirement: Interactive Dashboard
-The view operation SHALL open the interactive `openspec view` dashboard in a
-terminal window created by the configured split command, and SHALL enter insert mode
-so the dashboard is immediately interactive.
-
-#### Scenario: Launching the dashboard
-- WHEN the user runs `:Specs view`
-- THEN a window is created with the configured `view.split` command, `openspec view` runs in a terminal in it, and insert mode is entered

@@ -5,7 +5,7 @@ local M = {}
 --- @field cmd string           Executable name or absolute path to the openspec binary.
 --- @field notify boolean       Whether to emit vim.notify messages.
 --- @field picker table         Telescope picker options.
---- @field view table           Options for the embedded `openspec view` terminal.
+--- @field dashboard table      Options for the navigable changes/specs tree panel.
 local defaults = {
   -- Executable used for every shelled-out call. Override to pin an absolute path.
   cmd = "openspec",
@@ -23,9 +23,9 @@ local defaults = {
     },
   },
 
-  view = {
-    -- Command used to create the window that hosts the `openspec view` terminal.
-    split = "botright new",
+  dashboard = {
+    -- Command used to create the window that hosts the changes/specs tree panel.
+    split = "topleft 40vsplit",
   },
 }
 
