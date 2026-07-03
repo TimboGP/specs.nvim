@@ -108,6 +108,67 @@ function M.status(name)
   end)
 end
 
+--- Seed a freshly created, still-empty artifact buffer from its schema template.
+--- No-ops if the buffer already has content, so it never clobbers real work.
+--- @param bufnr integer
+--- @param artifact_id string
+--- @param schema string|nil
+local function seed_from_template(bufnr, artifact_id, schema)
+  local args = { "templates" }
+  if schema then
+    vim.list_extend(args, { "--schema", schema })
+  end
+  cli.run_json(args, function(data, err)
+    if err or not vim.api.nvim_buf_is_valid(bufnr) then
+      return
+    end
+    local entry = data and data[artifact_id]
+    if not entry or not entry.path then
+      return
+    end
+    local existing = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    if #existing > 1 or existing[1] ~= "" then
+      return
+    end
+    local ok, template_lines = pcall(vim.fn.readfile, entry.path)
+    if not ok then
+      return
+    end
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, template_lines)
+    pcall(vim.api.nvim_win_set_cursor, 0, { 1, 0 })
+  end)
+end
+
+--- Open a freshly created change's first ready artifact (usually proposal.md) in
+--- a new tab, seeded from its schema template. A tab keeps this safe to call from
+--- anywhere — a Telescope prompt, the dashboard panel, or a plain buffer — without
+--- clobbering whatever window/split the caller was using.
+--- @param name string
+local function open_first_artifact(name)
+  cli.run_json({ "status", "--change", name }, function(data, err)
+    if err or not data then
+      return
+    end
+    local target
+    for _, a in ipairs(data.artifacts or {}) do
+      if a.status == "ready" and a.outputPath and not a.outputPath:find("*", 1, true) then
+        target = a
+        break
+      end
+    end
+    if not target then
+      return
+    end
+    local root = cli.root()
+    if not root then
+      return
+    end
+    local path = root .. "/openspec/changes/" .. name .. "/" .. target.outputPath
+    vim.cmd("tabedit " .. vim.fn.fnameescape(path))
+    seed_from_template(vim.api.nvim_get_current_buf(), target.id, data.schemaName)
+  end)
+end
+
 --- Create a new change. Prompts for a name when none is given.
 --- @param name string|nil
 --- @param on_done fun()|nil callback after successful creation (e.g. refresh picker)
@@ -121,6 +182,7 @@ function M.new_change(name, on_done)
         return
       end
       ui.notify("Created change '" .. n .. "'", vim.log.levels.INFO)
+      open_first_artifact(n)
       if on_done then
         on_done()
       end

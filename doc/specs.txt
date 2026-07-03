@@ -97,7 +97,9 @@ Subcommands (name arguments tab-complete from `openspec list`):
   show {name}        Show a change/spec as markdown in a scratch buffer.
   validate [{name}]  Validate one item; with no name validates all (--all).
   status {name}      Artifact completion checklist for a change.
-  new [{name}]       Create a change (prompts for a name if omitted).
+  new [{name}]       Create a change (prompts for a name if omitted), then open
+                     its first ready artifact in a new tab, seeded from the
+                     schema template.
   archive {name}     Archive a change (asks to confirm).
   view               Open the navigable changes/specs dashboard (see below).
   init [{args}]      Pass through to `openspec init`.

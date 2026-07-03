@@ -81,12 +81,17 @@ use({
 | `:Specs show <name>` | Show a change/spec as markdown in a scratch buffer |
 | `:Specs validate [name\|all]` | Validate one item, or all with no arg |
 | `:Specs status <name>` | Artifact completion checklist for a change |
-| `:Specs new [name]` | Create a change (prompts if no name) |
+| `:Specs new [name]` | Create a change (prompts if no name), then open its first artifact |
 | `:Specs archive <name>` | Archive a change (asks to confirm) |
 | `:Specs view` | Open the navigable changes/specs dashboard |
 | `:Specs init [args]` | Pass through to `openspec init` |
 
 Subcommands and change names tab-complete.
+
+`:Specs new` doesn't stop at creating the change directory: it opens the first
+ready artifact (normally `proposal.md`) in a new tab, seeded from the active
+schema's template (via `openspec templates`) so you land on a filled-in skeleton
+instead of a blank file.
 
 ### Dashboard
 

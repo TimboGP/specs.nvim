@@ -80,6 +80,30 @@ success.
 - WHEN new-change is invoked without a name
 - THEN the user is prompted via `vim.ui.input` and the entered name is used (an empty response cancels)
 
+#### Scenario: Creation failure
+- WHEN `openspec new change <name>` exits non-zero (e.g. the change already exists)
+- THEN no artifact is opened and no `on_done` callback fires
+
+### Requirement: Jump Into a New Change
+After a change is successfully created, the new-change operation SHALL open its
+first ready, non-glob artifact (typically `proposal.md`) in a new tab, seeded from
+that schema's template file when the artifact is still empty.
+
+#### Scenario: Opening the first artifact
+- WHEN a change is created successfully
+- THEN `openspec status --change <name> --json` is queried for its artifacts
+- AND the first artifact with status `ready` and a concrete (non-glob) `outputPath` is opened in a new tab at `openspec/changes/<name>/<outputPath>`
+
+#### Scenario: Seeding from the schema template
+- GIVEN the opened artifact's buffer is still empty
+- WHEN it is opened
+- THEN `openspec templates --schema <schemaName> --json` resolves that artifact's template file, and its contents seed the buffer
+
+#### Scenario: Never clobbering existing content
+- GIVEN the target buffer already has content
+- WHEN seeding is attempted
+- THEN the buffer is left untouched
+
 ### Requirement: Archive Change
 The archive operation SHALL require confirmation before archiving a change via
 `openspec archive <name> -y`, invalidate the project-root cache afterward, and run
