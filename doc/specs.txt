@@ -95,7 +95,9 @@ Subcommands (name arguments tab-complete from `openspec list`):
   changes            Open the changes picker (also the no-arg default).
   specs              Open the specs picker.
   show {name}        Show a change/spec as markdown in a scratch buffer.
-  validate [{name}]  Validate one item; with no name validates all (--all).
+  validate [{name}]  Validate one item, or all with no name (--all). Issues
+                     populate the quickfix list (`:copen`, `:cnext`/`:cprev`)
+                     with a best-effort file/line per issue.
   status {name}      Artifact completion checklist for a change.
   new [{name}]       Create a change (prompts for a name if omitted), then open
                      its first ready artifact in a new tab, seeded from the

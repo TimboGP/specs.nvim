@@ -41,7 +41,57 @@ function M.show_text(name, typ, cb)
   end)
 end
 
---- Render validation results for one item, or --all.
+--- Line number of the Nth (0-indexed) "### Requirement:" heading in a spec file,
+--- matching the `requirements.<N>.text` issue paths the CLI emits for specs.
+--- @param file string
+--- @param n integer
+--- @return integer|nil
+local function requirement_heading_line(file, n)
+  local ok, lines = pcall(vim.fn.readfile, file)
+  if not ok then
+    return nil
+  end
+  local count = -1
+  for i, line in ipairs(lines) do
+    if line:match("^### Requirement:") then
+      count = count + 1
+      if count == n then
+        return i
+      end
+    end
+  end
+  return nil
+end
+
+--- Best-effort file + line for a validate issue, using whatever location detail
+--- the CLI's `issue.path` provides: `requirements.<N>.text` for specs (mapped to
+--- the Nth requirement heading), a delta spec's relative path for changes, or
+--- just the item's root artifact when the issue is file-wide (`path == "file"`).
+--- @param item table one entry from `data.items`
+--- @param issue table|string
+--- @param root string project root
+--- @return string file, integer lnum, string message
+local function issue_location(item, issue, root)
+  local msg = type(issue) == "string" and issue or (issue.message or vim.inspect(issue))
+  local path = type(issue) == "table" and issue.path or nil
+  local file, lnum
+
+  if item.type == "spec" then
+    file = root .. "/openspec/specs/" .. item.id .. "/spec.md"
+    local n = path and path:match("^requirements%.(%d+)%.")
+    lnum = n and requirement_heading_line(file, tonumber(n))
+  elseif path and path ~= "file" and path:match("%.md$") then
+    file = root .. "/openspec/changes/" .. item.id .. "/specs/" .. path
+  else
+    file = root .. "/openspec/changes/" .. item.id .. "/proposal.md"
+  end
+
+  return file, lnum or 1, msg
+end
+
+--- Validate one item, or --all, and populate the quickfix list with its issues
+--- so `[q`/`]q`/`:cnext` navigate straight to the offending file and (when the
+--- CLI's issue path resolves to one) line.
 --- @param name string|nil name, or "all"/nil for --all
 function M.validate(name)
   local args = { "validate" }
@@ -51,29 +101,37 @@ function M.validate(name)
     table.insert(args, name)
   end
 
+  -- `openspec validate` exits 1 when any item is invalid — that's the normal,
+  -- expected outcome we're here to report, not a tool failure.
   cli.run_json(args, function(data, err)
     if err then
       return
     end
-    -- The CLI shape varies (single vs --all); render defensively.
-    local lines = { "# openspec validate", "" }
-    local items = data.results or data.items or { data }
-    local any_invalid = false
+    local root = cli.root() or ""
+    local items = (data and data.items) or {}
+    local qf = {}
     for _, item in ipairs(items) do
-      local ok = item.valid ~= false and item.isValid ~= false
-      any_invalid = any_invalid or not ok
-      local label = item.name or item.id or (name or "all")
-      table.insert(lines, (ok and "✓ " or "✗ ") .. label)
-      for _, issue in ipairs(item.issues or item.errors or {}) do
-        local text = type(issue) == "string" and issue or (issue.message or vim.inspect(issue))
-        table.insert(lines, "    • " .. text)
+      for _, issue in ipairs(item.issues or {}) do
+        local file, lnum, msg = issue_location(item, issue, root)
+        local level = type(issue) == "table" and issue.level or nil
+        table.insert(qf, {
+          filename = file,
+          lnum = lnum,
+          text = ("[%s] %s"):format(item.id or name or "?", msg),
+          type = (level and level:match("^WARN")) and "W" or "E",
+        })
       end
     end
-    if not any_invalid then
+
+    if #qf == 0 then
       ui.notify("Validation passed", vim.log.levels.INFO)
+      vim.fn.setqflist({}, "r", { title = "openspec validate", items = {} })
+      return
     end
-    ui.open_scratch(lines, { title = "specs://validate", filetype = "markdown" })
-  end)
+
+    vim.fn.setqflist({}, " ", { title = "openspec validate", items = qf })
+    vim.cmd("copen")
+  end, { ok_codes = { 0, 1 } })
 end
 
 --- Render artifact completion status for a change.

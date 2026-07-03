@@ -38,21 +38,53 @@ optionally passing an item `--type`, and SHALL warn when no name is supplied.
 
 ### Requirement: Validate
 The validate operation SHALL validate one named item, or all items when given no
-name or the sentinel `all`, and SHALL render a per-item pass/fail report while
-defensively tolerating single-item and `--all` JSON shapes.
+name or the sentinel `all`, and SHALL populate the quickfix list with one entry
+per issue so `:cnext`/`:cprev` navigate between them.
 
 #### Scenario: Validate all
 - WHEN validate is invoked with no name or with `all`
-- THEN `openspec validate --all --json` runs and each item is listed with `✓` (valid) or `✗` (invalid) and any issue messages
+- THEN `openspec validate --all --json` runs
 
 #### Scenario: Validate one
 - WHEN validate is invoked with a specific name
-- THEN `openspec validate <name> --json` runs and its result is rendered
+- THEN `openspec validate <name> --json` runs
+
+#### Scenario: Issues found
+- GIVEN one or more items are invalid
+- WHEN the results are processed
+- THEN each issue becomes a quickfix entry with a message, an `E`/`W` type from the issue's level, and a best-effort file (and line, when resolvable) location, and the quickfix window opens
+
+#### Scenario: Exit code 1 is not a tool failure
+- GIVEN `openspec validate` exits 1 because an item is invalid
+- WHEN its JSON output still parses
+- THEN it is treated as a normal result, not a CLI error
 
 #### Scenario: All valid
 - GIVEN every validated item is valid
-- WHEN the report is produced
-- THEN an INFO notification reports that validation passed
+- WHEN the results are processed
+- THEN an INFO notification reports that validation passed and the quickfix list is cleared
+
+### Requirement: Validate Issue Location
+Each validate issue SHALL resolve to as precise a location as the CLI's `issue.path`
+allows: a spec's `requirements.<N>.text` path SHALL map to the Nth `### Requirement:`
+heading in that spec's file; a change issue whose path is a relative `.md` file
+SHALL map to that file under the change's `specs/` directory; anything else SHALL
+fall back to the item's `proposal.md` (changes) or `spec.md` (specs) at line 1.
+
+#### Scenario: Spec requirement path
+- GIVEN a spec issue with path `requirements.2.text`
+- WHEN its location is resolved
+- THEN the file is `openspec/specs/<id>/spec.md` and the line is that of the third `### Requirement:` heading, or line 1 if the file can't be read or has fewer headings
+
+#### Scenario: Change delta path
+- GIVEN a change issue with path `<capability>/spec.md`
+- WHEN its location is resolved
+- THEN the file is `openspec/changes/<id>/specs/<capability>/spec.md`
+
+#### Scenario: File-wide issue
+- GIVEN a change issue with path `file` (or no path)
+- WHEN its location is resolved
+- THEN the file is `openspec/changes/<id>/proposal.md`
 
 ### Requirement: Artifact Status
 The status operation SHALL render the artifact-completion checklist for a change

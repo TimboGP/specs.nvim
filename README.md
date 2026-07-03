@@ -79,7 +79,7 @@ use({
 | `:Specs` / `:Specs changes` | Open the **changes** picker |
 | `:Specs specs` | Open the **specs** picker |
 | `:Specs show <name>` | Show a change/spec as markdown in a scratch buffer |
-| `:Specs validate [name\|all]` | Validate one item, or all with no arg |
+| `:Specs validate [name\|all]` | Validate one item, or all with no arg — issues open in the quickfix list |
 | `:Specs status <name>` | Artifact completion checklist for a change |
 | `:Specs new [name]` | Create a change (prompts if no name), then open its first artifact |
 | `:Specs archive <name>` | Archive a change (asks to confirm) |
