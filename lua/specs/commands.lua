@@ -11,6 +11,9 @@ end
 local function actions()
   return require("specs.actions")
 end
+local function dashboard()
+  return require("specs.dashboard")
+end
 
 --- @type table<string, fun(args: string[])>
 local handlers = {
@@ -38,7 +41,7 @@ local handlers = {
     actions().archive(args[1])
   end,
   view = function()
-    ui.view()
+    dashboard().open()
   end,
   init = function(args)
     -- Pass through to `openspec init`; may require --tools, so surface stdout.

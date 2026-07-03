@@ -4,7 +4,7 @@
 Plugin configuration: the optional `setup()` entry point, the default options, and
 how user overrides are merged. Configuration governs the executable used, whether
 notifications are emitted, the in-picker action keymaps, and the window command that
-hosts the interactive dashboard.
+hosts the navigable dashboard panel.
 
 ## Requirements
 
@@ -25,15 +25,15 @@ merged table.
 ### Requirement: Default Options
 The defaults SHALL be `cmd = "openspec"`, `notify = true`, picker action mappings
 `validate = <C-v>`, `status = <C-s>`, `archive = <C-a>`, `new = <C-n>`, and
-`view.split = "botright new"`.
+`dashboard.split = "topleft 40vsplit"`.
 
 #### Scenario: Reading defaults
 - WHEN the default configuration is inspected
-- THEN `cmd` is `"openspec"`, `notify` is `true`, the four picker mappings hold their default keys, and `view.split` is `"botright new"`
+- THEN `cmd` is `"openspec"`, `notify` is `true`, the four picker mappings hold their default keys, and `dashboard.split` is `"topleft 40vsplit"`
 
 #### Scenario: Partial override preserves other defaults
 - WHEN `setup({ cmd = "/usr/local/bin/openspec" })` is called
-- THEN `cmd` is overridden while `notify`, the picker mappings, and `view.split` retain their defaults
+- THEN `cmd` is overridden while `notify`, the picker mappings, and `dashboard.split` retain their defaults
 
 ### Requirement: Notification Toggle
 Notifications SHALL be emitted through a single helper that carries the `specs`

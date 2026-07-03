@@ -85,7 +85,14 @@ function M.run_json(args, cb, opts)
       cb(nil, err)
       return
     end
-    local ok, decoded = pcall(vim.json.decode, res.stdout)
+    local trimmed = vim.trim(res.stdout)
+    if trimmed == "" or not trimmed:match("^[%[{]") then
+      -- Some subcommands (e.g. `list --specs`) print a plain "None found"
+      -- message instead of JSON when the result set is empty, even with --json.
+      cb({}, nil)
+      return
+    end
+    local ok, decoded = pcall(vim.json.decode, trimmed)
     if not ok then
       local msg = "Failed to parse openspec JSON output"
       ui.notify(msg, vim.log.levels.ERROR)

@@ -8,9 +8,10 @@ CONTENTS                                                    *specs-contents*
   3. Setup ................................ |specs-setup|
   4. Configuration ........................ |specs-configuration|
   5. Commands ............................. |specs-commands|
-  6. Telescope ............................ |specs-telescope|
-  7. Lua API .............................. |specs-api|
-  8. Health ............................... |specs-health|
+  6. Dashboard ............................ |specs-dashboard|
+  7. Telescope ............................ |specs-telescope|
+  8. Lua API .............................. |specs-api|
+  9. Health ............................... |specs-health|
 
 ==============================================================================
 1. INTRODUCTION                                         *specs-introduction*
@@ -72,15 +73,16 @@ Defaults: >lua
           new      = "<C-n>",
         },
       },
-      view = {
-        split = "botright new", -- window command hosting `openspec view`
+      dashboard = {
+        split = "topleft 40vsplit", -- window command hosting the tree panel
       },
     }
 <
-`cmd`      Executable name or absolute path to the openspec binary.
-`notify`   When false, silences all [openspec] notifications.
-`picker`   Telescope picker options; `mappings` overrides in-picker action keys.
-`view`     `split` is the command used to create the `openspec view` terminal.
+`cmd`        Executable name or absolute path to the openspec binary.
+`notify`     When false, silences all [openspec] notifications.
+`picker`     Telescope picker options; `mappings` overrides in-picker action keys.
+`dashboard`  `split` is the command used to create the changes/specs tree panel
+             window (see |specs-dashboard|).
 
 ==============================================================================
 5. COMMANDS                                                 *specs-commands*
@@ -97,11 +99,38 @@ Subcommands (name arguments tab-complete from `openspec list`):
   status {name}      Artifact completion checklist for a change.
   new [{name}]       Create a change (prompts for a name if omitted).
   archive {name}     Archive a change (asks to confirm).
-  view               Open the interactive `openspec view` dashboard terminal.
+  view               Open the navigable changes/specs dashboard (see below).
   init [{args}]      Pass through to `openspec init`.
 
 ==============================================================================
-6. TELESCOPE                                               *specs-telescope*
+6. DASHBOARD                                               *specs-dashboard*
+
+`:Specs view` opens a persistent, collapsible tree panel over the current
+project's changes and specs — similar in spirit to plugins like undotree.
+Unlike shelling out to the external `openspec view` terminal, the panel is
+native Neovim UI: it stays open until you close it, and stays in sync with
+the rest of the plugin's actions.
+
+  - Top-level nodes are "Changes" and "Specs", built from `openspec list`.
+  - Expanding a change lazily fetches its artifact checklist (from
+    `openspec status --change`), showing each artifact's status icon and
+    any missing dependencies.
+  - Selecting a change or spec opens/refreshes a live markdown preview pane
+    (the `openspec show` output) in a split next to the tree.
+
+Keys (buffer-local, not user-configurable except where noted):
+
+  <CR>     On a change/spec: open/update the preview pane.
+           On a section: toggle expand/collapse.
+  o / <Tab> Toggle expand/collapse of the node under the cursor.
+  R        Refresh data from the CLI (preserves expand state).
+  q        Close the dashboard and its preview pane.
+
+The validate/status/archive/new mappings are shared with the Telescope
+pickers — see the `picker.mappings` config in |specs-configuration|.
+
+==============================================================================
+7. TELESCOPE                                               *specs-telescope*
 
 Load the extension, then use: >
 
@@ -118,7 +147,7 @@ item. In-picker mappings (configurable, see |specs-configuration|):
   <C-n>    Create a new change.
 
 ==============================================================================
-7. LUA API                                                       *specs-api*
+8. LUA API                                                       *specs-api*
 
 >lua
     local os_ = require("specs")
@@ -131,7 +160,7 @@ item. In-picker mappings (configurable, see |specs-configuration|):
     os_.archive("add-user-auth")
 <
 ==============================================================================
-8. HEALTH                                                     *specs-health*
+9. HEALTH                                                     *specs-health*
 
 >
     :checkhealth specs

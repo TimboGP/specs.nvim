@@ -2,9 +2,9 @@
 
 A Neovim wrapper for the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI — drive
 spec-driven development without leaving your editor. Browse changes and specs in
-visual [Telescope](https://github.com/nvim-telescope/telescope.nvim) pickers, validate and
-inspect artifact status, create and archive changes, and pop the interactive `openspec view`
-dashboard in a terminal split.
+visual [Telescope](https://github.com/nvim-telescope/telescope.nvim) pickers or a
+persistent, undotree-style navigable dashboard, validate and inspect artifact status,
+and create and archive changes.
 
 The plugin is a thin wrapper: it shells out to `openspec`, parses its `--json` output, and
 renders it. It owns no spec logic of its own.
@@ -83,10 +83,27 @@ use({
 | `:Specs status <name>` | Artifact completion checklist for a change |
 | `:Specs new [name]` | Create a change (prompts if no name) |
 | `:Specs archive <name>` | Archive a change (asks to confirm) |
-| `:Specs view` | Open the interactive `openspec view` dashboard in a terminal |
+| `:Specs view` | Open the navigable changes/specs dashboard |
 | `:Specs init [args]` | Pass through to `openspec init` |
 
 Subcommands and change names tab-complete.
+
+### Dashboard
+
+`:Specs view` opens a persistent, collapsible tree panel over changes and specs —
+undotree-style navigation instead of a one-shot printout. It stays open until you
+close it.
+
+| Key | Action |
+|-----|--------|
+| `<CR>` | On a change/spec: open/update the markdown preview pane. On a section: toggle expand/collapse |
+| `o` / `<Tab>` | Toggle expand/collapse of the node under the cursor |
+| `R` | Refresh from the CLI (keeps expand state) |
+| `q` | Close the dashboard and its preview pane |
+
+Expanding a change lazily fetches its artifact checklist (`openspec status --change`).
+The `validate`/`status`/`archive`/`new` picker mappings (below) also work here, on
+whichever change/spec is under the cursor.
 
 ### Telescope
 
@@ -123,8 +140,8 @@ require("specs").setup({
       new      = "<C-n>",
     },
   },
-  view = {
-    split = "botright new", -- window command hosting `openspec view`
+  dashboard = {
+    split = "topleft 40vsplit", -- window command hosting the tree panel
   },
 })
 ```
