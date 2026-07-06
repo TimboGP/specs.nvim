@@ -1,6 +1,6 @@
 --- Telescope pickers — the visual, list-style core of specs.nvim.
 --- Soft-depends on telescope.nvim: functions no-op with a notice if it's absent.
-local cli = require("specs.cli")
+local provider = require("specs.provider")
 local ui = require("specs.ui")
 local actions_mod = require("specs.actions")
 local config = require("specs.config")
@@ -34,12 +34,13 @@ local function change_icon(change)
   return by_status[change.status] or "•"
 end
 
---- Build a buffer previewer that renders `openspec show <name>` markdown.
+--- Build a buffer previewer that renders an item's `show` markdown.
 --- @param t table telescope modules
 --- @param typ string|nil item type for show
-local function show_previewer(t, typ)
+--- @param title string previewer title
+local function show_previewer(t, typ, title)
   return t.previewers.new_buffer_previewer({
-    title = "OpenSpec Preview",
+    title = title or "Preview",
     define_preview = function(self, entry)
       local buf = self.state.bufnr
       vim.bo[buf].filetype = "markdown"
@@ -72,7 +73,7 @@ local function build(t, opts, cfg)
         entry_maker = cfg.entry_maker,
       }),
       sorter = t.conf.generic_sorter(opts),
-      previewer = show_previewer(t, cfg.typ),
+      previewer = show_previewer(t, cfg.typ, cfg.preview_title),
       attach_mappings = function(prompt_bufnr, map)
         -- <CR>: open full markdown detail in a split.
         t.actions.select_default:replace(function()
@@ -115,24 +116,31 @@ local function build(t, opts, cfg)
     :find()
 end
 
---- Picker over active changes.
+--- Picker over active changes (OpenSpec) / features (spec-kit).
 --- @param opts table|nil telescope opts
 function M.changes(opts)
   local t = tele()
   if not t then
     return
   end
-  cli.run_json({ "list" }, function(data, err)
+  local p = provider.resolve()
+  if not p then
+    ui.notify("Not in a spec project (OpenSpec or spec-kit) — run :Specs init", vim.log.levels.WARN)
+    return
+  end
+  local titles = { openspec = "OpenSpec Changes", speckit = "spec-kit Features" }
+  p.impl.list_changes(p.root, function(items, err)
     if err then
       return
     end
-    local items = (data and data.changes) or {}
+    items = items or {}
     if #items == 0 then
       ui.notify("No changes found", vim.log.levels.INFO)
       return
     end
     build(t, opts, {
-      title = "OpenSpec Changes",
+      title = titles[p.name] or "Changes",
+      preview_title = "Preview",
       typ = "change",
       items = items,
       refresh = M.changes,
@@ -148,24 +156,30 @@ function M.changes(opts)
   end)
 end
 
---- Picker over specifications.
+--- Picker over specifications (OpenSpec) / constitution + memory docs (spec-kit).
 --- @param opts table|nil telescope opts
 function M.specs(opts)
   local t = tele()
   if not t then
     return
   end
-  cli.run_json({ "list", "--specs" }, function(data, err)
+  local p = provider.resolve()
+  if not p then
+    ui.notify("Not in a spec project (OpenSpec or spec-kit) — run :Specs init", vim.log.levels.WARN)
+    return
+  end
+  p.impl.list_specs(p.root, function(items, err)
     if err then
       return
     end
-    local items = (data and data.specs) or {}
+    items = items or {}
     if #items == 0 then
-      ui.notify("No specs found", vim.log.levels.INFO)
+      ui.notify("No " .. p.caps.specs_section:lower() .. " docs found", vim.log.levels.INFO)
       return
     end
     build(t, opts, {
-      title = "OpenSpec Specs",
+      title = (p.name == "speckit") and ("spec-kit — " .. p.caps.specs_section) or "OpenSpec Specs",
+      preview_title = "Preview",
       typ = "spec",
       items = items,
       refresh = M.specs,

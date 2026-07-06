@@ -1,18 +1,30 @@
 # specs.nvim
 
-A Neovim wrapper for the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI — drive
-spec-driven development without leaving your editor. Browse changes and specs in
-visual [Telescope](https://github.com/nvim-telescope/telescope.nvim) pickers or a
-persistent, undotree-style navigable dashboard, validate and inspect artifact status,
-and create and archive changes.
+A Neovim front-end for spec-driven development — drive it without leaving your editor.
+Browse changes/features and specs in visual
+[Telescope](https://github.com/nvim-telescope/telescope.nvim) pickers or a persistent,
+undotree-style navigable dashboard, validate and inspect artifact status, and create
+changes/features.
 
-The plugin is a thin wrapper: it shells out to `openspec`, parses its `--json` output, and
-renders it. It owns no spec logic of its own.
+It supports two backends and **auto-detects** which one a project uses:
+
+- **[OpenSpec](https://github.com/Fission-AI/OpenSpec)** — shells out to the `openspec`
+  CLI and renders its `--json` output.
+- **[spec-kit](https://github.com/github/spec-kit)** — reads the project filesystem
+  directly (`specs/NNN-*/` feature folders + `.specify/memory/`), since spec-kit has no
+  query CLI. See [Backends](#backends) for the mapping and caveats.
+
+The plugin owns no spec logic of its own — it renders whatever the active backend exposes.
 
 ## Requirements
 
 - Neovim **≥ 0.10** (uses `vim.system`)
-- The [`openspec`](https://github.com/Fission-AI/OpenSpec) CLI on your `PATH`
+- A backend, depending on your project:
+  - **OpenSpec**: the [`openspec`](https://github.com/Fission-AI/OpenSpec) CLI on your `PATH`.
+  - **spec-kit**: nothing required for browsing (pure filesystem). The
+    [`specify`](https://github.com/github/spec-kit) CLI is only used by `:Specs init`, and
+    spec-kit's own `.specify/scripts/bash/create-new-feature.sh` is used by `:Specs new`
+    when present (with a pure-Lua fallback).
 - [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) — **optional**, but
   required for the `changes`/`specs` list pickers. Everything else works without it.
 
@@ -81,24 +93,24 @@ use({
 | `:Specs show <name>` | Show a change/spec as markdown in a scratch buffer |
 | `:Specs validate [name\|all]` | Validate one item, or all with no arg — issues open in the quickfix list |
 | `:Specs status <name>` | Artifact completion checklist for a change |
-| `:Specs new [name]` | Create a change (prompts if no name), then open its first artifact |
-| `:Specs archive <name>` | Archive a change (asks to confirm) |
-| `:Specs diff <name>` | Diff a change's proposed spec deltas against the current specs |
+| `:Specs new [name]` | Create a change/feature (prompts if no name), then open its first artifact |
+| `:Specs archive <name>` | Archive a change (OpenSpec only; asks to confirm) |
+| `:Specs diff <name>` | Diff a change/feature (see below — meaning differs per backend) |
 | `:Specs view` | Open the navigable changes/specs dashboard |
-| `:Specs init [args]` | Pass through to `openspec init` |
+| `:Specs init [args]` | Initialize a project with the active backend's CLI |
 
-Subcommands and change names tab-complete.
+Subcommands and change/feature names tab-complete. Behavior adapts to the detected
+backend — see [Backends](#backends) for the full mapping.
 
-`:Specs new` doesn't stop at creating the change directory: it opens the first
-ready artifact (normally `proposal.md`) in a new tab, seeded from the active
-schema's template (via `openspec templates`) so you land on a filled-in skeleton
-instead of a blank file.
+`:Specs new` doesn't stop at creating the directory: it opens the first ready artifact
+(OpenSpec `proposal.md`; spec-kit `spec.md`) in a new tab, seeded from the backend's
+template so you land on a filled-in skeleton instead of a blank file.
 
-`:Specs diff <name>` opens one tab per capability the change touches, each a
-Neovim diff (`vert diffsplit`) between the current `openspec/specs/<capability>/spec.md`
-and the change's proposed `openspec/changes/<name>/specs/<capability>/spec.md`. A
-capability that doesn't exist yet just diffs against an empty buffer, showing the
-whole delta as added.
+`:Specs diff <name>` on **OpenSpec** opens one tab per capability the change touches, each
+a Neovim diff (`vert diffsplit`) between the current `openspec/specs/<capability>/spec.md`
+and the change's proposed spec delta (a not-yet-existing capability diffs against an empty
+buffer, showing the whole delta as added). On **spec-kit** it shows a `git diff` of the
+feature folder in a scratch buffer.
 
 ### Dashboard
 
@@ -114,7 +126,7 @@ close it.
 | `R` | Refresh from the CLI (keeps expand state) |
 | `q` | Close the dashboard and its preview pane |
 
-Expanding a change lazily fetches its artifact checklist (`openspec status --change`).
+Expanding a change/feature lazily fetches its artifact checklist from the active backend.
 Once unblocked, the `tasks` artifact expands further into its individual `- [ ]`
 checkboxes — toggling one edits and saves `tasks.md` directly (through an
 already-open buffer for it, if there is one) without leaving the dashboard.
@@ -138,7 +150,38 @@ Inside a picker:
 | `<C-a>` | Archive the selected change (confirm) |
 | `<C-n>` | Create a new change |
 
-The right-hand preview pane shows the rendered `openspec show` markdown for the highlighted item.
+The right-hand preview pane shows the rendered `show` markdown for the highlighted item.
+
+## Backends
+
+The plugin resolves a backend per project by walking up from the current buffer:
+
+- an `openspec/` directory → **OpenSpec**
+- a `.specify/` directory (or a `specs/` directory holding numbered feature folders) →
+  **spec-kit**
+
+If both are found, the closer (deeper) one wins; ties go to OpenSpec. Force a single
+backend with `provider = "openspec"` or `"speckit"` in `setup()`.
+
+The same `:Specs` commands, dashboard, and pickers work against both. Because spec-kit's
+model differs from OpenSpec's, some concepts are mapped and a few commands are repurposed:
+
+| Concept / command | OpenSpec | spec-kit |
+|---|---|---|
+| "Changes" section | `openspec` changes | feature folders under `specs/NNN-*/` |
+| Second section | capability **Specs** | **Constitution** + `.specify/memory/*.md` |
+| Artifact status | `openspec status --change` | synthesized from file existence (`spec`→`plan`→`tasks`→…) |
+| `tasks` checkboxes | tasks.md `- [ ]`/`- [x]` | tasks.md `- [ ]`/`- [x]` (identical) |
+| `show` | `openspec show` | reads `spec.md` (or the memory doc) |
+| `validate` | schema issues → quickfix | missing-artifact check → quickfix (`spec.md` error, `plan/tasks.md` warnings) |
+| `new` | `openspec new change <name>` | `create-new-feature.sh --json "<desc>"` if present, else Lua-created `specs/NNN-slug/` |
+| `diff` | proposed spec deltas vs current specs | `git diff` of the feature folder |
+| `archive` | `openspec archive` | not supported (notifies; delete the folder manually) |
+| `init` | `openspec init` | `specify init` |
+
+spec-kit's actual authoring workflow runs through its AI-agent slash commands
+(`/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, …); this plugin surfaces and
+navigates the artifacts those commands produce.
 
 ## Configuration
 
@@ -146,8 +189,14 @@ The right-hand preview pane shows the rendered `openspec show` markdown for the 
 
 ```lua
 require("specs").setup({
-  cmd = "openspec",  -- executable name or absolute path
-  notify = true,     -- emit [openspec] notifications
+  provider = "auto",  -- "auto" (detect per project), "openspec", or "speckit"
+  cmd = "openspec",   -- OpenSpec executable name or absolute path
+  speckit = {
+    cmd = "specify",         -- spec-kit CLI (only used by :Specs init)
+    specs_dir = "specs",     -- feature folders live here, relative to the root
+    memory_dir = ".specify/memory", -- constitution + memory docs
+  },
+  notify = true,      -- emit [specs] notifications
   picker = {
     mappings = {     -- in-picker action keymaps (insert + normal)
       validate = "<C-v>",
@@ -168,9 +217,10 @@ require("specs").setup({
 :checkhealth specs
 ```
 
-Reports whether the `openspec` binary is found (and its version), whether telescope.nvim is
-available, and whether the current directory is inside an OpenSpec project (an `openspec/`
-directory found by walking up from the current buffer).
+Reports the configured `provider` mode, whether the `openspec` and `specify` binaries are
+found, whether telescope.nvim is available, and which backend the current directory
+resolves to (OpenSpec or spec-kit) — including, for spec-kit, whether the
+`create-new-feature.sh` helper is present.
 
 ## Lua API
 

@@ -1,5 +1,5 @@
 --- :Specs subcommand dispatch + completion.
-local cli = require("specs.cli")
+local provider = require("specs.provider")
 local ui = require("specs.ui")
 
 local M = {}
@@ -47,13 +47,13 @@ local handlers = {
     dashboard().open()
   end,
   init = function(args)
-    -- Pass through to `openspec init`; may require --tools, so surface stdout.
-    local passthrough = { "init" }
-    vim.list_extend(passthrough, args)
-    cli.run(passthrough, { require_root = false }, function(res, err)
-      if not err and res then
-        cli.clear_cache()
-        ui.notify("openspec init complete", vim.log.levels.INFO)
+    -- Initialize a project with the configured backend (OpenSpec by default under
+    -- "auto"; spec-kit when `provider = "speckit"`).
+    local p = provider.for_init()
+    p.impl.init(p.root, args, function(ok)
+      if ok then
+        provider.clear_cache()
+        ui.notify(p.name .. " init complete", vim.log.levels.INFO)
       end
     end)
   end,
@@ -98,34 +98,19 @@ function M.complete(arg_lead, cmd_line)
 
   -- Second-argument completion: item names for name-taking subcommands.
   local sub = parts[2]
-  local wants_names = { show = "list", validate = "list", status = "list", archive = "list", diff = "list" }
+  local wants_names = { show = true, validate = true, status = true, archive = true, diff = true }
   if not wants_names[sub] then
     return {}
   end
 
-  -- Synchronous best-effort name lookup for completion.
-  local root = cli.root()
-  if not root then
+  -- Synchronous best-effort name lookup from the active backend for completion.
+  local p = provider.resolve()
+  if not p then
     return {}
   end
-  local res = vim.system({ require("specs.config").options.cmd, "list", "--json" }, {
-    cwd = root,
-    text = true,
-  }):wait()
-  if res.code ~= 0 then
-    return {}
-  end
-  local ok, data = pcall(vim.json.decode, res.stdout)
-  if not ok or not data.changes then
-    return {}
-  end
-  local names = {}
-  for _, c in ipairs(data.changes) do
-    if c.name:find(arg_lead, 1, true) == 1 then
-      table.insert(names, c.name)
-    end
-  end
-  return names
+  return vim.tbl_filter(function(name)
+    return name:find(arg_lead, 1, true) == 1
+  end, p.impl.names_sync(p.root))
 end
 
 return M
