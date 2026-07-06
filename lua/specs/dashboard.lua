@@ -2,7 +2,7 @@
 --- specs (undotree-style) with a jump-to preview pane. Replaces shelling out to
 --- the external `openspec view` terminal, which was a one-shot, non-interactive
 --- printout that vanished with the job.
-local cli = require("specs.cli")
+local provider = require("specs.provider")
 local ui = require("specs.ui")
 local actions = require("specs.actions")
 local config = require("specs.config")
@@ -61,30 +61,30 @@ end
 
 --- Fetch and shape a change's artifact checklist into leaf nodes (lazy child loader).
 --- The `tasks` artifact, once unblocked, is itself expandable into its individual
---- checkbox tasks.
+--- checkbox tasks. Backend-agnostic: `status()` supplies each artifact's absolute
+--- path so this never assumes a project layout.
+--- @param p SpecsProvider
 --- @param node table the change node being expanded
 --- @param cb fun() called once node.children is populated
-local function load_change_children(node, cb)
-  cli.run_json({ "status", "--change", node.name }, function(data, err)
+local function load_change_children(p, node, cb)
+  p.impl.status(p.root, node.name, function(data, err)
     local kids = {}
     if err or not data then
       kids[1] = { key = node.key .. ":err", kind = "info", label = "(status unavailable)", expandable = false }
     else
-      local root = cli.root()
       for _, a in ipairs(data.artifacts or {}) do
         local line = ("%s %-10s %s"):format(artifact_icon(a.status), a.status, a.id)
         if a.missingDeps and #a.missingDeps > 0 then
           line = line .. "  (needs: " .. table.concat(a.missingDeps, ", ") .. ")"
         end
         local artifact_node = { key = node.key .. ":" .. a.id, kind = "artifact", label = line, expandable = false }
-        if a.id == "tasks" and a.status ~= "blocked" and root and a.outputPath then
-          local path = root .. "/openspec/changes/" .. node.name .. "/" .. a.outputPath
+        if a.id == "tasks" and a.status ~= "blocked" and a.path then
           artifact_node.expandable = true
           artifact_node.expanded = false
           artifact_node.loaded = false
           artifact_node.children = {}
           artifact_node.load = function(n, done)
-            n.children = parse_tasks(path)
+            n.children = parse_tasks(a.path)
             n.loaded = true
             done()
           end
@@ -102,10 +102,13 @@ local function load_change_children(node, cb)
 end
 
 --- Build the two-section root tree from `list` data, restoring expand state by key.
+--- The second section's label is backend-specific (OpenSpec "Specs", spec-kit
+--- "Constitution").
+--- @param p SpecsProvider
 --- @param changes table[]
 --- @param specs table[]
 --- @param expanded table<string, boolean>
-local function build_tree(changes, specs, expanded)
+local function build_tree(p, changes, specs, expanded)
   local change_nodes = {}
   for _, c in ipairs(changes) do
     local key = "change:" .. c.name
@@ -118,7 +121,9 @@ local function build_tree(changes, specs, expanded)
       expanded = expanded[key] or false,
       loaded = false,
       children = {},
-      load = load_change_children,
+      load = function(n, done)
+        load_change_children(p, n, done)
+      end,
     })
   end
 
@@ -147,7 +152,7 @@ local function build_tree(changes, specs, expanded)
     {
       key = "section:specs",
       kind = "section",
-      label = ("Specs (%d)"):format(#spec_nodes),
+      label = ("%s (%d)"):format(p.caps.specs_section, #spec_nodes),
       expandable = true,
       expanded = expanded["section:specs"] ~= false,
       loaded = true,
@@ -334,21 +339,26 @@ local function run_action_on_node(buf, win, action)
   end
 end
 
---- Refresh a dashboard buffer's data from the CLI, preserving expand state.
+--- Refresh a dashboard buffer's data from the active backend, preserving expand state.
 --- @param buf integer
 function M.refresh(buf)
   local st = state[buf]
   if not st then
     return
   end
-  cli.run_json({ "list" }, function(cdata, cerr)
-    local changes = (not cerr and cdata and cdata.changes) or {}
-    cli.run_json({ "list", "--specs" }, function(sdata, serr)
-      local specs = (not serr and sdata and sdata.specs) or {}
+  local p = provider.resolve()
+  if not p then
+    ui.notify("Not in a spec project (OpenSpec or spec-kit) — run :Specs init", vim.log.levels.WARN)
+    st.tree = {}
+    render(buf)
+    return
+  end
+  p.impl.list_changes(p.root, function(changes)
+    p.impl.list_specs(p.root, function(specs)
       if not state[buf] then
         return
       end
-      st.tree = build_tree(changes, specs, st.expanded)
+      st.tree = build_tree(p, changes or {}, specs or {}, st.expanded)
       render(buf)
     end)
   end)

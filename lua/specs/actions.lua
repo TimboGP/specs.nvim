@@ -1,193 +1,118 @@
---- Non-picker operations. Also invoked by the Telescope picker mappings.
-local cli = require("specs.cli")
+--- Non-picker operations. Also invoked by the Telescope picker mappings and the
+--- dashboard. Backend-agnostic: every function resolves the active provider
+--- (`specs.provider`) and delegates the backend-specific work to it, keeping the
+--- rendering (scratch buffers, quickfix, tab opening) here.
+local provider = require("specs.provider")
 local ui = require("specs.ui")
 
 local M = {}
 
---- Show a change or spec as markdown in a scratch buffer.
+--- Resolve the backend for the current context, notifying if there is none.
+--- @return SpecsProvider|nil
+local function resolve()
+  local p = provider.resolve()
+  if not p then
+    ui.notify("Not in a spec project (OpenSpec or spec-kit) — run :Specs init", vim.log.levels.WARN)
+  end
+  return p
+end
+
+--- Show a change/spec/feature as markdown in a scratch buffer.
 --- @param name string
---- @param typ string|nil "change" | "spec" (passed as --type when given)
+--- @param typ string|nil "change" | "spec"
 function M.show(name, typ)
   if not name or name == "" then
     ui.notify("show: missing item name", vim.log.levels.WARN)
     return
   end
-  local args = { "show", name }
-  if typ then
-    vim.list_extend(args, { "--type", typ })
+  local p = resolve()
+  if not p then
+    return
   end
-  cli.run(args, nil, function(res, err)
-    if err or not res then
+  p.impl.show(p.root, name, typ, function(text, err)
+    if err or not text then
       return
     end
-    ui.open_scratch(ui.to_lines(res.stdout), {
+    ui.open_scratch(ui.to_lines(text), {
       title = "specs://show/" .. name,
       filetype = "markdown",
     })
   end)
 end
 
---- Fetch a change/spec's markdown into a string (used by the picker previewer).
+--- Fetch an item's markdown into a string (used by the picker/dashboard preview).
+--- Resolves silently — the caller is already inside a resolved context.
 --- @param name string
 --- @param typ string|nil
 --- @param cb fun(text: string|nil)
 function M.show_text(name, typ, cb)
-  local args = { "show", name }
-  if typ then
-    vim.list_extend(args, { "--type", typ })
+  local p = provider.resolve()
+  if not p then
+    cb(nil)
+    return
   end
-  cli.run(args, nil, function(res, err)
-    cb((not err and res) and res.stdout or nil)
+  p.impl.show(p.root, name, typ, function(text)
+    cb(text)
   end)
 end
 
---- Open a diff of a change's proposed spec deltas against the current top-level
---- spec they touch, one tab per capability. We don't reconstruct the merged
---- result ourselves — that's `openspec archive`'s job — we just diff the two
---- real files (Neovim's diff engine handles a missing "before" file, for a
---- brand-new capability, as entirely-added content).
---- @param name string change name
+--- Open a diff for a change/feature. What "diff" means is backend-specific
+--- (OpenSpec: proposed spec deltas; spec-kit: git diff of the feature folder).
+--- @param name string
 function M.diff(name)
   if not name or name == "" then
     ui.notify("diff: missing change name", vim.log.levels.WARN)
     return
   end
-  cli.run_json({ "show", name, "--type", "change", "--deltas-only" }, function(data, err)
-    if err or not data then
-      return
-    end
-    local deltas = data.deltas or {}
-    if #deltas == 0 then
-      ui.notify("No spec deltas found for '" .. name .. "'", vim.log.levels.INFO)
-      return
-    end
-    local root = cli.root()
-    if not root then
-      return
-    end
-
-    local seen, capabilities = {}, {}
-    for _, d in ipairs(deltas) do
-      if d.spec and not seen[d.spec] then
-        seen[d.spec] = true
-        table.insert(capabilities, d.spec)
-      end
-    end
-
-    for _, capability in ipairs(capabilities) do
-      local before = root .. "/openspec/specs/" .. capability .. "/spec.md"
-      local after = root .. "/openspec/changes/" .. name .. "/specs/" .. capability .. "/spec.md"
-      vim.cmd("tabedit " .. vim.fn.fnameescape(after))
-      vim.cmd("vert diffsplit " .. vim.fn.fnameescape(before))
-    end
-  end)
+  local p = resolve()
+  if not p then
+    return
+  end
+  if not p.caps.diff then
+    ui.notify("diff is not supported by the " .. p.name .. " backend", vim.log.levels.INFO)
+    return
+  end
+  p.impl.diff(p.root, name)
 end
 
---- Line number of the Nth (0-indexed) "### Requirement:" heading in a spec file,
---- matching the `requirements.<N>.text` issue paths the CLI emits for specs.
---- @param file string
---- @param n integer
---- @return integer|nil
-local function requirement_heading_line(file, n)
-  local ok, lines = pcall(vim.fn.readfile, file)
-  if not ok then
-    return nil
-  end
-  local count = -1
-  for i, line in ipairs(lines) do
-    if line:match("^### Requirement:") then
-      count = count + 1
-      if count == n then
-        return i
-      end
-    end
-  end
-  return nil
-end
-
---- Best-effort file + line for a validate issue, using whatever location detail
---- the CLI's `issue.path` provides: `requirements.<N>.text` for specs (mapped to
---- the Nth requirement heading), a delta spec's relative path for changes, or
---- just the item's root artifact when the issue is file-wide (`path == "file"`).
---- @param item table one entry from `data.items`
---- @param issue table|string
---- @param root string project root
---- @return string file, integer lnum, string message
-local function issue_location(item, issue, root)
-  local msg = type(issue) == "string" and issue or (issue.message or vim.inspect(issue))
-  local path = type(issue) == "table" and issue.path or nil
-  local file, lnum
-
-  if item.type == "spec" then
-    file = root .. "/openspec/specs/" .. item.id .. "/spec.md"
-    local n = path and path:match("^requirements%.(%d+)%.")
-    lnum = n and requirement_heading_line(file, tonumber(n))
-  elseif path and path ~= "file" and path:match("%.md$") then
-    file = root .. "/openspec/changes/" .. item.id .. "/specs/" .. path
-  else
-    file = root .. "/openspec/changes/" .. item.id .. "/proposal.md"
-  end
-
-  return file, lnum or 1, msg
-end
-
---- Validate one item, or --all, and populate the quickfix list with its issues
---- so `[q`/`]q`/`:cnext` navigate straight to the offending file and (when the
---- CLI's issue path resolves to one) line.
---- @param name string|nil name, or "all"/nil for --all
+--- Validate one item, or all, and populate the quickfix list with the backend's
+--- issues so `[q`/`]q`/`:cnext` navigate straight to the offending file/line.
+--- @param name string|nil name, or "all"/nil for all
 function M.validate(name)
-  local args = { "validate" }
-  if not name or name == "" or name == "all" then
-    table.insert(args, "--all")
-  else
-    table.insert(args, name)
+  local p = resolve()
+  if not p then
+    return
   end
-
-  -- `openspec validate` exits 1 when any item is invalid — that's the normal,
-  -- expected outcome we're here to report, not a tool failure.
-  cli.run_json(args, function(data, err)
+  p.impl.validate(p.root, name, function(qf, err)
     if err then
       return
     end
-    local root = cli.root() or ""
-    local items = (data and data.items) or {}
-    local qf = {}
-    for _, item in ipairs(items) do
-      for _, issue in ipairs(item.issues or {}) do
-        local file, lnum, msg = issue_location(item, issue, root)
-        local level = type(issue) == "table" and issue.level or nil
-        table.insert(qf, {
-          filename = file,
-          lnum = lnum,
-          text = ("[%s] %s"):format(item.id or name or "?", msg),
-          type = (level and level:match("^WARN")) and "W" or "E",
-        })
-      end
-    end
-
     if #qf == 0 then
       ui.notify("Validation passed", vim.log.levels.INFO)
-      vim.fn.setqflist({}, "r", { title = "openspec validate", items = {} })
+      vim.fn.setqflist({}, "r", { title = "specs validate", items = {} })
       return
     end
-
-    vim.fn.setqflist({}, " ", { title = "openspec validate", items = qf })
+    vim.fn.setqflist({}, " ", { title = "specs validate", items = qf })
     vim.cmd("copen")
-  end, { ok_codes = { 0, 1 } })
+  end)
 end
 
---- Render artifact completion status for a change.
+--- Render artifact completion status for a change/feature.
 --- @param name string
 function M.status(name)
   if not name or name == "" then
     ui.notify("status: missing change name", vim.log.levels.WARN)
     return
   end
-  cli.run_json({ "status", "--change", name }, function(data, err)
-    if err then
+  local p = resolve()
+  if not p then
+    return
+  end
+  p.impl.status(p.root, name, function(data, err)
+    if err or not data then
       return
     end
-    local icons = { ready = "✓", blocked = "⋯", complete = "✓", pending = "○" }
+    local icons = { ready = "○", blocked = "⋯", complete = "✓", pending = "○", done = "✓" }
     local lines = {
       "# status: " .. (data.changeName or name),
       "",
@@ -208,81 +133,40 @@ function M.status(name)
   end)
 end
 
---- Seed a freshly created, still-empty artifact buffer from its schema template.
---- No-ops if the buffer already has content, so it never clobbers real work.
---- @param bufnr integer
---- @param artifact_id string
---- @param schema string|nil
-local function seed_from_template(bufnr, artifact_id, schema)
-  local args = { "templates" }
-  if schema then
-    vim.list_extend(args, { "--schema", schema })
-  end
-  cli.run_json(args, function(data, err)
-    if err or not vim.api.nvim_buf_is_valid(bufnr) then
-      return
-    end
-    local entry = data and data[artifact_id]
-    if not entry or not entry.path then
-      return
-    end
-    local existing = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-    if #existing > 1 or existing[1] ~= "" then
-      return
-    end
-    local ok, template_lines = pcall(vim.fn.readfile, entry.path)
-    if not ok then
-      return
-    end
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, template_lines)
-    pcall(vim.api.nvim_win_set_cursor, 0, { 1, 0 })
-  end)
-end
-
---- Open a freshly created change's first ready artifact (usually proposal.md) in
---- a new tab, seeded from its schema template. A tab keeps this safe to call from
---- anywhere — a Telescope prompt, the dashboard panel, or a plain buffer — without
---- clobbering whatever window/split the caller was using.
+--- Open a freshly created change/feature's first artifact in a new tab, seeded
+--- from its template. A tab keeps this safe to call from anywhere.
+--- @param p SpecsProvider
 --- @param name string
-local function open_first_artifact(name)
-  cli.run_json({ "status", "--change", name }, function(data, err)
-    if err or not data then
+local function open_first_artifact(p, name)
+  p.impl.first_artifact(p.root, name, function(artifact, err)
+    if err or not artifact then
       return
     end
-    local target
-    for _, a in ipairs(data.artifacts or {}) do
-      if a.status == "ready" and a.outputPath and not a.outputPath:find("*", 1, true) then
-        target = a
-        break
-      end
-    end
-    if not target then
-      return
-    end
-    local root = cli.root()
-    if not root then
-      return
-    end
-    local path = root .. "/openspec/changes/" .. name .. "/" .. target.outputPath
-    vim.cmd("tabedit " .. vim.fn.fnameescape(path))
-    seed_from_template(vim.api.nvim_get_current_buf(), target.id, data.schemaName)
+    vim.cmd("tabedit " .. vim.fn.fnameescape(artifact.path))
+    p.impl.seed_template(p.root, vim.api.nvim_get_current_buf(), artifact)
   end)
 end
 
---- Create a new change. Prompts for a name when none is given.
+--- Create a new change (OpenSpec) or feature (spec-kit). Prompts when no name/
+--- description is given, using the backend's prompt hint.
 --- @param name string|nil
---- @param on_done fun()|nil callback after successful creation (e.g. refresh picker)
+--- @param on_done fun()|nil callback after successful creation (e.g. refresh)
 function M.new_change(name, on_done)
-  local function create(n)
-    if not n or n == "" then
+  local p = resolve()
+  if not p then
+    return
+  end
+  local function create(input)
+    if not input or input == "" then
       return
     end
-    cli.run({ "new", "change", n }, nil, function(res, err)
-      if err or not res then
+    p.impl.new(p.root, input, function(created, err)
+      if err or not created then
         return
       end
-      ui.notify("Created change '" .. n .. "'", vim.log.levels.INFO)
-      open_first_artifact(n)
+      provider.clear_cache()
+      ui.notify("Created '" .. created .. "'", vim.log.levels.INFO)
+      open_first_artifact(p, created)
       if on_done then
         on_done()
       end
@@ -292,16 +176,26 @@ function M.new_change(name, on_done)
   if name and name ~= "" then
     create(name)
   else
-    vim.ui.input({ prompt = "New change name: " }, create)
+    vim.ui.input({ prompt = p.caps.new_hint }, create)
   end
 end
 
---- Archive a change after a confirmation prompt.
+--- Archive a change after confirmation (OpenSpec). Backends without an archive
+--- concept (spec-kit) surface a notice instead.
 --- @param name string
 --- @param on_done fun()|nil
 function M.archive(name, on_done)
   if not name or name == "" then
     ui.notify("archive: missing change name", vim.log.levels.WARN)
+    return
+  end
+  local p = resolve()
+  if not p then
+    return
+  end
+  if not p.caps.archive then
+    -- The provider owns the "unsupported" notice.
+    p.impl.archive(p.root, name, function() end)
     return
   end
   vim.ui.select({ "Yes", "No" }, {
@@ -310,11 +204,11 @@ function M.archive(name, on_done)
     if choice ~= "Yes" then
       return
     end
-    cli.run({ "archive", name, "-y" }, nil, function(res, err)
-      if err or not res then
+    p.impl.archive(p.root, name, function(ok, err)
+      if err or not ok then
         return
       end
-      cli.clear_cache()
+      provider.clear_cache()
       ui.notify("Archived '" .. name .. "'", vim.log.levels.INFO)
       if on_done then
         on_done()
